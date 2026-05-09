@@ -7,7 +7,7 @@ export default defineConfig({
     port: 10000,
     proxy: {
       '/api': {
-        target: 'http://localhost:10000',
+        target: 'https://scholaros-5ncu.onrender.com',
         changeOrigin: true,
       }
     }
