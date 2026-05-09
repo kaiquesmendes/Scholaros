@@ -44,7 +44,7 @@ const PDFUploader = () => {
     formData.append('pdf', fileItem.file);
 
     try {
-      const response = await axios.post('http://localhost:10000/api/pdf/process', formData, {
+      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/pdf/process', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
         timeout: 60000
       });

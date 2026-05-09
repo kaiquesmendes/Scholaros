@@ -518,7 +518,7 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
     toast.loading(`🤖 IA formatando seu ${cfg[mode].label}...`, { id: 'format' });
 
     try {
-      const response = await axios.post('http://localhost:10000/api/essay/format-abnt', {
+      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
         content: essay,
         mode: mode,
         tccConfig: tccConfig,
@@ -579,7 +579,7 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
     toast.loading(`🤖 IA analisando seu ${cfg[mode].label}...`, { id: 'analyzing' });
 
     try {
-      const response = await axios.post('http://localhost:10000/api/essay/analyze', {
+      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
         content: essay,
         mode: mode
       });
