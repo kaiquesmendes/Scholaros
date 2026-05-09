@@ -244,7 +244,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 ScholarOS backend rodando na porta ${PORT}`);
   console.log(`🤖 Gemini API: ${process.env.GEMINI_API_KEY ? '✅ Configurada' : '❌ Chave não encontrada'}`);
