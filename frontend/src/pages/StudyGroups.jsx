@@ -1,17 +1,17 @@
 // frontend/src/pages/StudyGroups.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Routes, Route, useNavigate, useParams } from 'react-router-dom';
-import { FaPlus, FaPaperPlane, FaImage, FaTimes, FaUsers, FaArrowLeft } from 'react-icons/fa';
+import { useNavigate, useParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { FaPlus, FaPaperPlane, FaArrowLeft } from 'react-icons/fa';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import ChatMessage from '../components/ChatMessage';
 import GroupCard from '../components/GroupCard';
 import { 
   createGroup, listenUserGroups, listenAllGroups, joinGroup, leaveGroup, 
-  deleteGroup, sendGroupMessage, listenGroupMessages, likeMessage,
-  getFullUserData, auth
+  deleteGroup, sendGroupMessage, listenGroupMessages, likeMessage
 } from '../services/chatService';
+import { getFullUserData } from '../config/firebase';
 import toast from 'react-hot-toast';
 
 // Componente de criação de grupo

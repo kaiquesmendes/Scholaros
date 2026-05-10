@@ -5,7 +5,8 @@ import { FaPaperPlane, FaImage, FaPaperclip, FaTimes, FaSmile } from 'react-icon
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import ChatMessage from '../components/ChatMessage';
-import { sendGlobalMessage, listenGlobalMessages, likeMessage, getFullUserData } from '../services/chatService';
+import { sendGlobalMessage, listenGlobalMessages, likeMessage } from '../services/chatService';
+import { getFullUserData } from '../config/firebase';
 import { auth } from '../config/firebase';
 import toast from 'react-hot-toast';
 
