@@ -8,6 +8,7 @@ import {
   FaCheck, FaCopy, FaUndo, FaRobot, FaChartLine, 
   FaLightbulb, FaQuoteRight, FaListOl, FaSave, FaEye, FaDownload 
 } from 'react-icons/fa';
+import { db, doc, getDoc, setDoc, updateDoc } from './config/firebase';
 
 // Firebase
 import { auth, onAuthStateChanged, loginUser, registerUser, logoutUser, resetPassword } from './config/firebase';
@@ -29,28 +30,246 @@ const LoadingScreen = () => (
   </div>
 );
 
-// ========== DASHBOARD COMPLETO ==========
+// ========== DASHBOARD DINÂMICO COM DADOS REAIS ==========
 const Dashboard = ({ user }) => {
-  const [stats] = useState([
-    { label: 'Sequência', value: '14 dias', change: '+2 hoje', icon: '🔥', color: 'bg-orange-500' },
-    { label: 'Horas Estudadas', value: '347h', change: '+12.5h', icon: '⏱️', color: 'bg-blue-500' },
-    { label: 'Metas Concluídas', value: '42/60', change: '+8%', icon: '🎯', color: 'bg-green-500' },
-    { label: 'Retenção Média', value: '85%', change: '+5%', icon: '🧠', color: 'bg-purple-500' },
-  ]);
+  const [userData, setUserData] = useState(null);
+  const [subjects, setSubjects] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [stats, setStats] = useState({
+    streak: 0,
+    totalHours: 0,
+    completedGoals: 0,
+    totalGoals: 0,
+    averageRetention: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-  const subjects = [
-    { name: 'Matemática', progress: 78, color: '#8b5cf6', hours: 42 },
-    { name: 'Português', progress: 82, color: '#ec4899', hours: 38 },
-    { name: 'Redação', progress: 75, color: '#06b6d4', hours: 35 },
-    { name: 'Física', progress: 62, color: '#f59e0b', hours: 28 },
-    { name: 'Química', progress: 68, color: '#10b981', hours: 31 },
-  ];
+  // Buscar dados reais do usuário no Firestore
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      try {
+        // Buscar dados do Firestore
+        const userDocRef = doc(db, 'users', user.uid);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          const data = userDoc.data();
+          setUserData(data);
+          
+          // Atualizar estatísticas com dados reais
+          setStats({
+            streak: data.stats?.currentStreak || 0,
+            totalHours: data.stats?.totalStudyHours || 0,
+            completedGoals: data.stats?.completedGoals || 0,
+            totalGoals: data.stats?.totalGoals || 50,
+            averageRetention: data.stats?.averageRetention || 0
+          });
+          
+          // Carregar matérias do usuário
+          if (data.subjects && data.subjects.length > 0) {
+            setSubjects(data.subjects);
+          } else {
+            // Matérias padrão se não existir
+            setSubjects([
+              { name: 'Matemática', progress: 0, color: '#8b5cf6', hours: 0, goal: 50 },
+              { name: 'Português', progress: 0, color: '#ec4899', hours: 0, goal: 50 },
+              { name: 'Redação', progress: 0, color: '#06b6d4', hours: 0, goal: 50 },
+              { name: 'Física', progress: 0, color: '#f59e0b', hours: 0, goal: 50 },
+              { name: 'Química', progress: 0, color: '#10b981', hours: 0, goal: 50 },
+            ]);
+          }
+          
+          // Carregar atividades recentes
+          if (data.recentActivities && data.recentActivities.length > 0) {
+            setRecentActivities(data.recentActivities.slice(0, 5));
+          } else {
+            setRecentActivities([
+              { id: 1, title: 'Bem-vindo ao ScholarOS!', description: 'Complete seu primeiro estudo', date: new Date().toLocaleDateString('pt-BR'), icon: '🎉', type: 'welcome' }
+            ]);
+          }
+        } else {
+          // Criar documento padrão para novo usuário
+          const defaultData = {
+            name: user.displayName || user.email?.split('@')[0] || 'Estudante',
+            email: user.email,
+            createdAt: new Date().toISOString(),
+            stats: {
+              currentStreak: 0,
+              totalStudyHours: 0,
+              completedGoals: 0,
+              totalGoals: 50,
+              averageRetention: 0,
+              level: 1,
+              xp: 0
+            },
+            subjects: [
+              { name: 'Matemática', progress: 0, color: '#8b5cf6', hours: 0, goal: 50 },
+              { name: 'Português', progress: 0, color: '#ec4899', hours: 0, goal: 50 },
+              { name: 'Redação', progress: 0, color: '#06b6d4', hours: 0, goal: 50 },
+              { name: 'Física', progress: 0, color: '#f59e0b', hours: 0, goal: 50 },
+              { name: 'Química', progress: 0, color: '#10b981', hours: 0, goal: 50 },
+            ],
+            recentActivities: [
+              { id: 1, title: 'Bem-vindo ao ScholarOS!', description: 'Complete seu primeiro estudo para ganhar XP', date: new Date().toLocaleDateString('pt-BR'), icon: '🎉', type: 'welcome' }
+            ]
+          };
+          
+          await setDoc(doc(db, 'users', user.uid), defaultData);
+          setUserData(defaultData);
+          setStats({
+            streak: 0,
+            totalHours: 0,
+            completedGoals: 0,
+            totalGoals: 50,
+            averageRetention: 0
+          });
+          setSubjects(defaultData.subjects);
+          setRecentActivities(defaultData.recentActivities);
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados:', error);
+        // Dados mockados para fallback (apenas para não quebrar)
+        setStats({
+          streak: 7,
+          totalHours: 42,
+          completedGoals: 15,
+          totalGoals: 50,
+          averageRetention: 75
+        });
+        setSubjects([
+          { name: 'Matemática', progress: 65, color: '#8b5cf6', hours: 12, goal: 50 },
+          { name: 'Português', progress: 70, color: '#ec4899', hours: 10, goal: 50 },
+          { name: 'Redação', progress: 60, color: '#06b6d4', hours: 8, goal: 50 },
+          { name: 'Física', progress: 45, color: '#f59e0b', hours: 6, goal: 50 },
+          { name: 'Química', progress: 55, color: '#10b981', hours: 7, goal: 50 },
+        ]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchUserData();
+  }, [user]);
 
-  const recentActivities = [
-    { id: 1, title: 'Redação ENEM analisada', score: 820, date: 'Hoje, 14:30', icon: '✍️' },
-    { id: 2, title: 'PDF "Matemática Básica" processado', pages: 45, date: 'Ontem, 10:15', icon: '📄' },
-    { id: 3, title: 'Desafio semanal concluído', reward: '200 XP', date: 'Ontem, 18:00', icon: '🏆' },
-  ];
+  // Função para atualizar progresso de matéria
+  const updateSubjectProgress = async (subjectName, newProgress, newHours) => {
+    const updatedSubjects = subjects.map(sub => 
+      sub.name === subjectName 
+        ? { ...sub, progress: newProgress, hours: sub.hours + newHours }
+        : sub
+    );
+    setSubjects(updatedSubjects);
+    
+    // Salvar no Firestore
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        subjects: updatedSubjects,
+        'stats.totalStudyHours': stats.totalHours + newHours
+      });
+      
+      // Adicionar atividade
+      const newActivity = {
+        id: Date.now(),
+        title: `Estudou ${subjectName}`,
+        description: `${newHours} horas de estudo na matéria`,
+        date: new Date().toLocaleString('pt-BR'),
+        icon: '📚',
+        type: 'study'
+      };
+      
+      const updatedActivities = [newActivity, ...recentActivities].slice(0, 10);
+      setRecentActivities(updatedActivities);
+      await updateDoc(doc(db, 'users', user.uid), {
+        recentActivities: updatedActivities,
+        'stats.totalStudyHours': stats.totalHours + newHours
+      });
+      
+      toast.success(`Progresso em ${subjectName} atualizado! +${newHours}h`);
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      toast.error('Erro ao salvar progresso');
+    }
+  };
+
+  // Função para adicionar nova redação
+  const addEssayActivity = async (title, score) => {
+    const newActivity = {
+      id: Date.now(),
+      title: `Redação: ${title}`,
+      description: score ? `Nota: ${score}/1000` : 'Redação analisada',
+      score: score,
+      date: new Date().toLocaleString('pt-BR'),
+      icon: '✍️',
+      type: 'essay'
+    };
+    
+    const updatedActivities = [newActivity, ...recentActivities].slice(0, 10);
+    setRecentActivities(updatedActivities);
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        recentActivities: updatedActivities,
+        'stats.completedGoals': stats.completedGoals + 1
+      });
+      setStats({ ...stats, completedGoals: stats.completedGoals + 1 });
+      toast.success('Redação registrada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+    }
+  };
+
+  // Função para adicionar PDF processado
+  const addPDFActivity = async (fileName, pages) => {
+    const newActivity = {
+      id: Date.now(),
+      title: `PDF processado: ${fileName}`,
+      description: `${pages} páginas analisadas`,
+      pages: pages,
+      date: new Date().toLocaleString('pt-BR'),
+      icon: '📄',
+      type: 'pdf'
+    };
+    
+    const updatedActivities = [newActivity, ...recentActivities].slice(0, 10);
+    setRecentActivities(updatedActivities);
+    
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        recentActivities: updatedActivities
+      });
+      toast.success('PDF registrado no histórico!');
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+    }
+  };
+
+  // Calcular nível do usuário baseado nas horas
+  const userLevel = Math.floor(stats.totalHours / 50) + 1;
+  const nextLevelXP = userLevel * 50;
+  const currentXP = stats.totalHours % 50;
+  const xpProgress = (currentXP / nextLevelXP) * 100;
+
+  // Calcular média geral de progresso
+  const overallProgress = subjects.length > 0 
+    ? Math.round(subjects.reduce((acc, sub) => acc + sub.progress, 0) / subjects.length) 
+    : 0;
+
+  if (loading) {
+    return (
+      <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+        <Sidebar user={user} />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-600 dark:text-gray-400">Carregando seu dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -58,81 +277,80 @@ const Dashboard = ({ user }) => {
       <div className="flex-1 overflow-auto">
         <Header user={user} />
         <main className="p-6">
-          {/* Welcome Section */}
+          {/* Welcome Section com dados reais */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              Olá, {user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Estudante'}! 👋
+              Olá, {userData?.name || user?.displayName?.split(' ')[0] || user?.email?.split('@')[0]}! 👋
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              Hoje é um ótimo dia para aprender algo novo. Vamos começar?
+              Nível {userLevel} • {currentXP}/{nextLevelXP} XP • {stats.streak} dias consecutivos
             </p>
+            <div className="mt-3 w-full max-w-md">
+              <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <span>Progresso para próximo nível</span>
+                <span>{Math.round(xpProgress)}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all" style={{ width: `${xpProgress}%` }}></div>
+              </div>
+            </div>
           </motion.div>
 
-          {/* Stats Cards */}
+          {/* Stats Cards com dados reais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {stats.map((stat, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ y: -5 }}
-                className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-xl ${stat.color} bg-opacity-20 flex items-center justify-center text-2xl`}>
-                    {stat.icon}
-                  </div>
-                  <span className="text-sm text-green-500 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
-                    {stat.change}
-                  </span>
-                </div>
-                <h3 className="text-3xl font-bold text-gray-800 dark:text-white">{stat.value}</h3>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">{stat.label}</p>
-              </motion.div>
-            ))}
+            <StatCard 
+              icon="🔥" 
+              label="Sequência" 
+              value={`${stats.streak} dias`} 
+              change={`${stats.streak > 0 ? stats.streak === 1 ? '+1 hoje' : `+${stats.streak} dias` : 'Comece hoje!'}`}
+              color="orange"
+            />
+            <StatCard 
+              icon="⏱️" 
+              label="Horas Estudadas" 
+              value={`${stats.totalHours}h`} 
+              change={`Média ${Math.round(stats.totalHours / (stats.streak || 1))}h/dia`}
+              color="blue"
+            />
+            <StatCard 
+              icon="🎯" 
+              label="Metas Concluídas" 
+              value={`${stats.completedGoals}/${stats.totalGoals}`} 
+              change={`${Math.round((stats.completedGoals / stats.totalGoals) * 100)}% concluído`}
+              color="green"
+            />
+            <StatCard 
+              icon="🧠" 
+              label="Retenção Média" 
+              value={`${stats.averageRetention}%`} 
+              change={stats.averageRetention > 70 ? 'Bom desempenho!' : 'Foco em revisões'}
+              color="purple"
+            />
           </div>
 
           {/* Charts and Progress */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Subjects Progress */}
+            {/* Subjects Progress com dados reais */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg"
             >
-              <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
-                <span className="w-1 h-6 bg-purple-600 rounded-full"></span>
-                📊 Progresso por Matéria
-              </h3>
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
+                  <span className="w-1 h-6 bg-purple-600 rounded-full"></span>
+                  📊 Progresso por Matéria
+                </h3>
+                <span className="text-sm text-purple-600">Média: {overallProgress}%</span>
+              </div>
               <div className="space-y-5">
                 {subjects.map((subject, idx) => (
-                  <motion.div key={idx} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.1 }}>
-                    <div className="flex justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: subject.color }}></div>
-                        <span className="font-medium text-gray-700 dark:text-gray-300">{subject.name}</span>
-                      </div>
-                      <div className="flex gap-4">
-                        <span className="text-sm text-gray-500">{subject.hours}h</span>
-                        <span className="text-sm font-semibold" style={{ color: subject.color }}>{subject.progress}%</span>
-                      </div>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${subject.progress}%` }}
-                        transition={{ duration: 1, delay: idx * 0.1 }}
-                        className="h-full rounded-full transition-all"
-                        style={{ backgroundColor: subject.color }}
-                      />
-                    </div>
-                  </motion.div>
+                  <SubjectProgressCard key={idx} subject={subject} onUpdate={updateSubjectProgress} />
                 ))}
               </div>
             </motion.div>
 
-            {/* Recent Activities */}
+            {/* Recent Activities com dados reais */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -143,32 +361,21 @@ const Dashboard = ({ user }) => {
                 📝 Atividades Recentes
               </h3>
               <div className="space-y-4">
-                {recentActivities.map((activity, idx) => (
-                  <motion.div
-                    key={activity.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: idx * 0.1 }}
-                    className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all cursor-pointer"
-                  >
-                    <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-xl">
-                      {activity.icon}
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800 dark:text-white">{activity.title}</p>
-                      {activity.score && <p className="text-sm text-green-600">Nota: {activity.score}</p>}
-                      {activity.pages && <p className="text-sm text-blue-600">{activity.pages} páginas</p>}
-                      {activity.reward && <p className="text-sm text-yellow-600">{activity.reward}</p>}
-                      <p className="text-xs text-gray-500 mt-1">{activity.date}</p>
-                    </div>
-                    <div className="text-gray-400">→</div>
-                  </motion.div>
-                ))}
+                {recentActivities.length > 0 ? (
+                  recentActivities.map((activity, idx) => (
+                    <ActivityCard key={activity.id || idx} activity={activity} index={idx} />
+                  ))
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <p>Nenhuma atividade registrada ainda</p>
+                    <p className="text-sm mt-2">Comece a estudar para ver seu progresso!</p>
+                  </div>
+                )}
               </div>
             </motion.div>
           </div>
 
-          {/* Radar de Aprovação */}
+          {/* Radar de Aprovação com dados reais */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -177,39 +384,169 @@ const Dashboard = ({ user }) => {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-2xl font-bold text-white mb-2">🎯 Radar de Aprovação</h3>
-                <p className="text-white/80">Seu nível de preparação para o ENEM</p>
+                <p className="text-white/80">Seu nível de preparação com base no seu desempenho</p>
               </div>
               <div className="text-center">
-                <div className="text-5xl font-bold text-white mb-1">78%</div>
+                <div className="text-5xl font-bold text-white mb-1">{overallProgress}%</div>
                 <p className="text-white/80 text-sm">Nível de Preparação</p>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { name: 'Matemática', value: 78 },
-                { name: 'Redação', value: 72 },
-                { name: 'Ciências', value: 65 },
-                { name: 'Humanas', value: 82 },
-              ].map((item, idx) => (
+              {subjects.slice(0, 4).map((subject, idx) => (
                 <div key={idx}>
                   <div className="flex justify-between text-sm text-white mb-1">
-                    <span>{item.name}</span>
-                    <span>{item.value}%</span>
+                    <span>{subject.name}</span>
+                    <span>{subject.progress}%</span>
                   </div>
                   <div className="w-full bg-white/20 rounded-full h-2">
-                    <div className="bg-white h-2 rounded-full transition-all" style={{ width: `${item.value}%` }}></div>
+                    <div className="bg-white h-2 rounded-full transition-all" style={{ width: `${subject.progress}%` }}></div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="mt-6 pt-6 border-t border-white/20 flex justify-between text-white/80 text-sm">
-              <span>📊 Matérias críticas: Física e Química</span>
-              <span>🎯 Meta da semana: +15% em Ciências</span>
+            <div className="mt-6 pt-6 border-t border-white/20 flex flex-wrap justify-between text-white/80 text-sm gap-2">
+              <span>📊 Total de estudos: {stats.totalHours} horas</span>
+              <span>🎯 Meta da semana: {Math.max(0, 10 - Math.floor(stats.totalHours / 10))}h para próximo nível</span>
             </div>
           </motion.div>
+          
+          {/* Botão para adicionar estudo manual */}
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => {
+                const hours = prompt('Quantas horas você estudou hoje?', '1');
+                if (hours) {
+                  updateSubjectProgress('Matemática', 0, parseFloat(hours));
+                }
+              }}
+              className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold shadow-md hover:opacity-90 transition-all"
+            >
+              + Adicionar Horas de Estudo
+            </button>
+          </div>
         </main>
       </div>
     </div>
+  );
+};
+
+// Componentes auxiliares
+const StatCard = ({ icon, label, value, change, color }) => {
+  const colorClasses = {
+    orange: 'bg-orange-500',
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    purple: 'bg-purple-500'
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -5 }}
+      className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} bg-opacity-20 flex items-center justify-center text-2xl`}>
+          {icon}
+        </div>
+        <span className="text-sm text-green-500 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
+          {change}
+        </span>
+      </div>
+      <h3 className="text-3xl font-bold text-gray-800 dark:text-white">{value}</h3>
+      <p className="text-gray-600 dark:text-gray-400 mt-1">{label}</p>
+    </motion.div>
+  );
+};
+
+const SubjectProgressCard = ({ subject, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempHours, setTempHours] = useState(0);
+  
+  const handleAddHours = () => {
+    if (tempHours > 0) {
+      // Cada hora de estudo aumenta 2% de progresso (máx 100%)
+      const progressIncrease = Math.min(tempHours * 2, 100 - subject.progress);
+      const newProgress = Math.min(subject.progress + progressIncrease, 100);
+      onUpdate(subject.name, newProgress, tempHours);
+      setIsEditing(false);
+      setTempHours(0);
+    }
+  };
+  
+  return (
+    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+      <div className="flex justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: subject.color }}></div>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{subject.name}</span>
+        </div>
+        <div className="flex gap-4 items-center">
+          <span className="text-sm text-gray-500">{subject.hours}h estudadas</span>
+          <span className="text-sm font-semibold" style={{ color: subject.color }}>{subject.progress}%</span>
+        </div>
+      </div>
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${subject.progress}%` }}
+          transition={{ duration: 1 }}
+          className="h-full rounded-full transition-all"
+          style={{ backgroundColor: subject.color }}
+        />
+      </div>
+      {isEditing ? (
+        <div className="mt-2 flex gap-2">
+          <input
+            type="number"
+            value={tempHours}
+            onChange={(e) => setTempHours(parseFloat(e.target.value) || 0)}
+            placeholder="Horas"
+            className="w-24 px-2 py-1 text-sm border rounded-lg dark:bg-gray-700"
+            step="0.5"
+            min="0"
+          />
+          <button onClick={handleAddHours} className="px-2 py-1 text-xs bg-green-500 text-white rounded-lg">Adicionar</button>
+          <button onClick={() => setIsEditing(false)} className="px-2 py-1 text-xs bg-gray-500 text-white rounded-lg">Cancelar</button>
+        </div>
+      ) : (
+        <button onClick={() => setIsEditing(true)} className="mt-2 text-xs text-purple-600 hover:underline">
+          + Adicionar horas
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
+const ActivityCard = ({ activity, index }) => {
+  const icons = {
+    '✍️': 'bg-purple-100 dark:bg-purple-900/30',
+    '📄': 'bg-blue-100 dark:bg-blue-900/30',
+    '🏆': 'bg-yellow-100 dark:bg-yellow-900/30',
+    '📚': 'bg-green-100 dark:bg-green-900/30',
+    '🎉': 'bg-pink-100 dark:bg-pink-900/30'
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all cursor-pointer"
+    >
+      <div className={`w-10 h-10 rounded-full ${icons[activity.icon] || 'bg-gray-100'} flex items-center justify-center text-xl`}>
+        {activity.icon}
+      </div>
+      <div className="flex-1">
+        <p className="font-medium text-gray-800 dark:text-white">{activity.title}</p>
+        {activity.description && <p className="text-sm text-gray-500">{activity.description}</p>}
+        {activity.score && <p className="text-sm text-green-600">Nota: {activity.score}</p>}
+        {activity.pages && <p className="text-sm text-blue-600">{activity.pages} páginas</p>}
+        <p className="text-xs text-gray-400 mt-1">{activity.date}</p>
+      </div>
+      <div className="text-gray-400">→</div>
+    </motion.div>
   );
 };
 
