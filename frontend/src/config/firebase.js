@@ -11,7 +11,25 @@ import {
   GithubAuthProvider,
   signInWithPopup
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { 
+  getFirestore, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  getDocs,
+  updateDoc, 
+  deleteDoc,
+  collection,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp
+} from 'firebase/firestore';
 
 // Suas configurações do Firebase
 const firebaseConfig = {
@@ -32,7 +50,7 @@ export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 export const githubProvider = new GithubAuthProvider();
 
-// Exportar funções básicas
+// Exportar TUDO que você vai usar
 export { 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -40,10 +58,26 @@ export {
   updateProfile,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  signInWithPopup
+  signInWithPopup,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  deleteDoc,
+  collection,
+  addDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp
 };
 
-// ========== FUNÇÃO DE CRIAÇÃO DE USUÁRIO (ATUALIZADA) ==========
+// ========== FUNÇÃO DE CRIAÇÃO DE USUÁRIO ==========
 const createUserDocument = async (user, additionalData = {}) => {
   if (!user) return;
   
@@ -122,7 +156,7 @@ const createUserDocument = async (user, additionalData = {}) => {
   }
 };
 
-// ========== LOGIN COM EMAIL/SENHA ==========
+// ========== FUNÇÕES DE AUTENTICAÇÃO ==========
 export const loginUser = async (email, password) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -133,7 +167,6 @@ export const loginUser = async (email, password) => {
   }
 };
 
-// ========== CADASTRO COM EMAIL/SENHA ==========
 export const registerUser = async (email, password, name) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -145,7 +178,6 @@ export const registerUser = async (email, password, name) => {
   }
 };
 
-// ========== LOGIN COM GOOGLE ==========
 export const loginWithGoogle = async () => {
   try {
     const result = await signInWithPopup(auth, googleProvider);
@@ -156,7 +188,6 @@ export const loginWithGoogle = async () => {
   }
 };
 
-// ========== LOGIN COM GITHUB ==========
 export const loginWithGithub = async () => {
   try {
     const result = await signInWithPopup(auth, githubProvider);
@@ -167,7 +198,6 @@ export const loginWithGithub = async () => {
   }
 };
 
-// ========== LOGOUT ==========
 export const logoutUser = async () => {
   try {
     await signOut(auth);
@@ -177,7 +207,6 @@ export const logoutUser = async () => {
   }
 };
 
-// ========== RESETAR SENHA ==========
 export const resetPassword = async (email) => {
   try {
     await sendPasswordResetEmail(auth, email);
@@ -187,7 +216,6 @@ export const resetPassword = async (email) => {
   }
 };
 
-// ========== BUSCAR DADOS DO USUÁRIO ==========
 export const getUserData = async (uid) => {
   try {
     const docRef = doc(db, 'users', uid);
@@ -201,7 +229,19 @@ export const getUserData = async (uid) => {
   }
 };
 
-// ========== ATUALIZAR DADOS DO USUÁRIO ==========
+export const getFullUserData = async (uid) => {
+  try {
+    const docRef = doc(db, 'users', uid);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      return { success: true, data: docSnap.data() };
+    }
+    return { success: false, error: 'Usuário não encontrado' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
 export const updateUserData = async (uid, data) => {
   try {
     const docRef = doc(db, 'users', uid);
@@ -212,9 +252,27 @@ export const updateUserData = async (uid, data) => {
   }
 };
 
-// ========== NOVAS FUNÇÕES (ADICIONADAS) ==========
+export const updateUserProfile = async (uid, profileData) => {
+  try {
+    const userRef = doc(db, 'users', uid);
+    await updateDoc(userRef, {
+      name: profileData.name,
+      bio: profileData.bio,
+      course: profileData.course,
+      university: profileData.university,
+      semester: profileData.semester,
+      location: profileData.location,
+      'socialLinks.github': profileData.github,
+      'socialLinks.linkedin': profileData.linkedin,
+      'socialLinks.instagram': profileData.instagram,
+      updatedAt: new Date().toISOString()
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
 
-// Atualizar estatísticas de estudo
 export const updateStudyStats = async (uid, hours, subjectName) => {
   try {
     const userRef = doc(db, 'users', uid);
@@ -226,29 +284,11 @@ export const updateStudyStats = async (uid, hours, subjectName) => {
       const currentSubjects = data.subjects || [];
       
       const newTotalHours = (currentStats.totalStudyHours || 0) + hours;
-      
-      const lastStudyDate = data.lastStudyDate;
       const today = new Date().toDateString();
       let newStreak = currentStats.currentStreak || 0;
       
-      if (lastStudyDate === today) {
-        // já estudou hoje
-      } else if (lastStudyDate === new Date(Date.now() - 86400000).toDateString()) {
-        newStreak += 1;
-      } else {
-        newStreak = 1;
-      }
-      
-      const newLongestStreak = Math.max(newStreak, currentStats.longestStreak || 0);
-      
       const updatedSubjects = currentSubjects.map(sub => 
-        sub.name === subjectName 
-          ? { 
-              ...sub, 
-              hours: (sub.hours || 0) + hours,
-              progress: Math.min(100, (sub.hours || 0) + hours)
-            }
-          : sub
+        sub.name === subjectName ? { ...sub, hours: (sub.hours || 0) + hours, progress: Math.min(100, (sub.hours || 0) + hours) } : sub
       );
       
       const xpGain = hours * 10;
@@ -278,7 +318,6 @@ export const updateStudyStats = async (uid, hours, subjectName) => {
       await updateDoc(userRef, {
         'stats.totalStudyHours': newTotalHours,
         'stats.currentStreak': newStreak,
-        'stats.longestStreak': newLongestStreak,
         'stats.currentXP': finalXP,
         'stats.level': newLevel,
         'stats.studySessions': (currentStats.studySessions || 0) + 1,
@@ -289,44 +328,6 @@ export const updateStudyStats = async (uid, hours, subjectName) => {
       });
       
       return { success: true };
-    }
-    return { success: false, error: 'Usuário não encontrado' };
-  } catch (error) {
-    console.error('Erro ao atualizar estatísticas:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Atualizar perfil do usuário
-export const updateUserProfile = async (uid, profileData) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, {
-      name: profileData.name,
-      bio: profileData.bio,
-      course: profileData.course,
-      university: profileData.university,
-      semester: profileData.semester,
-      location: profileData.location,
-      'socialLinks.github': profileData.github,
-      'socialLinks.linkedin': profileData.linkedin,
-      'socialLinks.instagram': profileData.instagram,
-      updatedAt: new Date().toISOString()
-    });
-    return { success: true };
-  } catch (error) {
-    console.error('Erro ao atualizar perfil:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Buscar dados completos do usuário
-export const getFullUserData = async (uid) => {
-  try {
-    const docRef = doc(db, 'users', uid);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return { success: true, data: docSnap.data() };
     }
     return { success: false, error: 'Usuário não encontrado' };
   } catch (error) {
