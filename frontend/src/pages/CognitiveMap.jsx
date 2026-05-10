@@ -5,7 +5,7 @@ import {
   FaChartLine, FaCalendarAlt, FaClock, FaBrain, 
   FaFire, FaBook, FaChartBar, FaChartPie, 
   FaTrophy, FaArrowUp, FaArrowDown, FaMinus,
-  FaDownload, FaCalendarWeek, FaChartScatter
+  FaDownload, FaCalendarWeek
 } from 'react-icons/fa';
 import { 
   LineChart, Line, AreaChart, Area, BarChart, Bar, 
