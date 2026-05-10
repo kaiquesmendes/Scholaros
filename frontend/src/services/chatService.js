@@ -18,9 +18,9 @@ import {
   serverTimestamp
 } from '../config/firebase';
 
-// ========== MENSAGENS GLOBAIS (Rede Social) ==========
+// ========== MENSAGENS GLOBAIS (Chat Global) ==========
 
-// Enviar mensagem no feed global
+// Enviar mensagem no chat global
 export const sendGlobalMessage = async (userId, userName, userPhoto, text) => {
   try {
     await addDoc(collection(db, 'messages'), {
@@ -29,8 +29,7 @@ export const sendGlobalMessage = async (userId, userName, userPhoto, text) => {
       userPhoto: userPhoto || null,
       text: text,
       timestamp: serverTimestamp(),
-      likes: [],
-      replies: []
+      likes: []
     });
     return { success: true };
   } catch (error) {
@@ -39,10 +38,10 @@ export const sendGlobalMessage = async (userId, userName, userPhoto, text) => {
 };
 
 // Escutar mensagens globais em tempo real
-export const listenGlobalMessages = (callback, limitCount = 50) => {
+export const listenGlobalMessages = (callback, limitCount = 100) => {
   const q = query(
     collection(db, 'messages'),
-    orderBy('timestamp', 'desc'),
+    orderBy('timestamp', 'asc'),
     limit(limitCount)
   );
   
@@ -55,7 +54,7 @@ export const listenGlobalMessages = (callback, limitCount = 50) => {
   });
 };
 
-// Curtir mensagem
+// Curtir mensagem global
 export const likeMessage = async (messageId, userId) => {
   try {
     const messageRef = doc(db, 'messages', messageId);
@@ -71,6 +70,201 @@ export const likeMessage = async (messageId, userId) => {
       return { success: true };
     }
     return { success: false };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// ========== POSTS (Feed Estilo Instagram) ==========
+
+// Criar novo post
+export const createPost = async (userId, userName, userPhoto, content, image) => {
+  try {
+    await addDoc(collection(db, 'posts'), {
+      userId: userId,
+      userName: userName,
+      userPhoto: userPhoto || null,
+      content: content,
+      image: image || null,
+      likes: [],
+      comments: [],
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Escutar posts em tempo real
+export const listenPosts = (callback, limitCount = 50) => {
+  const q = query(
+    collection(db, 'posts'),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const posts = [];
+    snapshot.forEach((doc) => {
+      posts.push({ id: doc.id, ...doc.data() });
+    });
+    callback(posts);
+  });
+};
+
+// Curtir post
+export const likePost = async (postId, userId) => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (postDoc.exists()) {
+      const currentLikes = postDoc.data().likes || [];
+      const newLikes = currentLikes.includes(userId) 
+        ? currentLikes.filter(id => id !== userId)
+        : [...currentLikes, userId];
+      
+      await updateDoc(postRef, { likes: newLikes });
+      return { success: true };
+    }
+    return { success: false };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Adicionar comentário em post
+export const addComment = async (postId, userId, userName, text) => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const newComment = {
+      userId: userId,
+      userName: userName,
+      text: text,
+      createdAt: new Date().toISOString(),
+      likes: []
+    };
+    
+    await updateDoc(postRef, {
+      comments: arrayUnion(newComment)
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Curtir comentário
+export const likeComment = async (postId, commentIndex, userId) => {
+  try {
+    const postRef = doc(db, 'posts', postId);
+    const postDoc = await getDoc(postRef);
+    
+    if (postDoc.exists()) {
+      const comments = postDoc.data().comments || [];
+      if (comments[commentIndex]) {
+        const currentLikes = comments[commentIndex].likes || [];
+        const newLikes = currentLikes.includes(userId) 
+          ? currentLikes.filter(id => id !== userId)
+          : [...currentLikes, userId];
+        
+        comments[commentIndex].likes = newLikes;
+        await updateDoc(postRef, { comments: comments });
+      }
+      return { success: true };
+    }
+    return { success: false };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// ========== AMIGOS / SEGUIR USUÁRIOS ==========
+
+// Buscar usuários por nome ou email
+export const searchUsers = async (query) => {
+  try {
+    const usersRef = collection(db, 'users');
+    // Busca por nome
+    const nameQuery = query(usersRef, where('name', '>=', query), where('name', '<=', query + '\uf8ff'));
+    const emailQuery = query(usersRef, where('email', '>=', query), where('email', '<=', query + '\uf8ff'));
+    
+    const [nameSnapshot, emailSnapshot] = await Promise.all([
+      getDocs(nameQuery),
+      getDocs(emailQuery)
+    ]);
+    
+    const usersMap = new Map();
+    
+    nameSnapshot.forEach((doc) => {
+      usersMap.set(doc.id, { id: doc.id, ...doc.data() });
+    });
+    
+    emailSnapshot.forEach((doc) => {
+      if (!usersMap.has(doc.id)) {
+        usersMap.set(doc.id, { id: doc.id, ...doc.data() });
+      }
+    });
+    
+    return Array.from(usersMap.values());
+  } catch (error) {
+    console.error('Erro ao buscar usuários:', error);
+    return [];
+  }
+};
+
+// Seguir usuário
+export const followUser = async (currentUserId, targetUserId) => {
+  try {
+    const currentUserRef = doc(db, 'users', currentUserId);
+    await updateDoc(currentUserRef, {
+      following: arrayUnion(targetUserId)
+    });
+    
+    // Adicionar à lista de seguidores do alvo
+    const targetUserRef = doc(db, 'users', targetUserId);
+    await updateDoc(targetUserRef, {
+      followers: arrayUnion(currentUserId)
+    });
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Deixar de seguir
+export const unfollowUser = async (currentUserId, targetUserId) => {
+  try {
+    const currentUserRef = doc(db, 'users', currentUserId);
+    await updateDoc(currentUserRef, {
+      following: arrayRemove(targetUserId)
+    });
+    
+    const targetUserRef = doc(db, 'users', targetUserId);
+    await updateDoc(targetUserRef, {
+      followers: arrayRemove(currentUserId)
+    });
+    
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Buscar amigos do usuário
+export const getUserFriends = async (userId) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    if (userDoc.exists()) {
+      const following = userDoc.data().following || [];
+      const followers = userDoc.data().followers || [];
+      return { success: true, following, followers };
+    }
+    return { success: false, error: 'Usuário não encontrado' };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -163,19 +357,17 @@ export const sendGroupMessage = async (groupId, userId, userName, userPhoto, tex
       readBy: [userId]
     };
     
-    // Se tiver arquivo, adiciona dados temporários (não salvos permanentemente)
     if (fileData) {
       messageData.file = {
         name: fileData.name,
         type: fileData.type,
         size: fileData.size,
-        data: fileData.data // Base64 temporário
+        data: fileData.data
       };
     }
     
     await addDoc(collection(db, 'groups', groupId, 'messages'), messageData);
     
-    // Atualizar timestamp do grupo
     const groupRef = doc(db, 'groups', groupId);
     await updateDoc(groupRef, { updatedAt: serverTimestamp() });
     
@@ -229,4 +421,43 @@ export const deleteGroup = async (groupId, userId) => {
   } catch (error) {
     return { success: false, error: error.message };
   }
+};
+
+// ========== MENSAGENS PRIVADAS ==========
+
+// Enviar mensagem privada
+export const sendPrivateMessage = async (fromUserId, toUserId, fromName, toName, text) => {
+  try {
+    const chatId = [fromUserId, toUserId].sort().join('_');
+    await addDoc(collection(db, 'private_messages', chatId, 'messages'), {
+      fromUserId: fromUserId,
+      toUserId: toUserId,
+      fromName: fromName,
+      toName: toName,
+      text: text,
+      timestamp: serverTimestamp(),
+      read: false
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Escutar mensagens privadas
+export const listenPrivateMessages = (userId, otherUserId, callback) => {
+  const chatId = [userId, otherUserId].sort().join('_');
+  const q = query(
+    collection(db, 'private_messages', chatId, 'messages'),
+    orderBy('timestamp', 'asc'),
+    limit(100)
+  );
+  
+  return onSnapshot(q, (snapshot) => {
+    const messages = [];
+    snapshot.forEach((doc) => {
+      messages.push({ id: doc.id, ...doc.data() });
+    });
+    callback(messages);
+  });
 };
