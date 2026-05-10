@@ -786,6 +786,7 @@ ANEXOS (opcional)`
       return;
     }
 
+    
     setFormatting(true);
     setOriginalEssay(essay);
     
