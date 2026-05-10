@@ -1,3 +1,4 @@
+// frontend/src/components/PDFUploader.jsx
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion } from 'framer-motion';
@@ -5,7 +6,7 @@ import { FaUpload, FaFilePdf, FaSpinner, FaCheckCircle, FaTimes, FaBook, FaLight
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const PDFUploader = () => {
+const PDFUploader = ({ user, onPDFProcessed }) => {
   const [files, setFiles] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [processedData, setProcessedData] = useState(null);
@@ -53,10 +54,16 @@ const PDFUploader = () => {
       setFiles(prev => prev.map(f => 
         f.id === fileItem.id ? { ...f, status: 'completed' } : f
       ));
-      toast.success('PDF processado com IA!');
+      
+      // Chamar callback para registrar XP e histórico
+      if (onPDFProcessed) {
+        await onPDFProcessed(fileItem.name, response.data.metadata?.pageCount || 0);
+      }
+      
+      toast.success('✅ PDF processado com sucesso!');
     } catch (error) {
       console.error('Erro:', error);
-      toast.error('Erro ao processar. Tente novamente.');
+      toast.error('❌ Erro ao processar PDF. Tente novamente.');
       setFiles(prev => prev.map(f => 
         f.id === fileItem.id ? { ...f, status: 'pending' } : f
       ));
@@ -92,6 +99,7 @@ const PDFUploader = () => {
 
   return (
     <div className="space-y-6">
+      {/* Área de Upload */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -111,6 +119,7 @@ const PDFUploader = () => {
         </p>
       </motion.div>
 
+      {/* Lista de Arquivos */}
       {files.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -140,7 +149,7 @@ const PDFUploader = () => {
                       disabled={processing}
                       className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all text-sm font-semibold"
                     >
-                      Processar
+                      {processing ? <FaSpinner className="animate-spin" /> : 'Processar'}
                     </button>
                   )}
                   <button
@@ -156,12 +165,14 @@ const PDFUploader = () => {
         </motion.div>
       )}
 
+      {/* Resultados do Processamento */}
       {processedData && selectedFile && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           className="space-y-6"
         >
+          {/* Resumo */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <FaBook className="text-purple-500 text-xl" />
@@ -170,6 +181,7 @@ const PDFUploader = () => {
             <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{processedData.summary}</p>
           </div>
 
+          {/* Flashcards */}
           {processedData.flashcards && processedData.flashcards.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
@@ -178,12 +190,16 @@ const PDFUploader = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {processedData.flashcards.map((card, idx) => (
-                  <FlashcardCard key={idx} card={card} />
+                  <div key={idx} className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4">
+                    <p className="font-medium text-gray-800 dark:text-white">{card.question}</p>
+                    <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">{card.answer}</p>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Questões */}
           {processedData.questions && processedData.questions.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
@@ -192,12 +208,23 @@ const PDFUploader = () => {
               </div>
               <div className="space-y-6">
                 {processedData.questions.map((q, idx) => (
-                  <QuestionCard key={idx} question={q} index={idx} />
+                  <div key={idx} className="border-b pb-4 last:border-0">
+                    <p className="font-semibold mb-2">{idx + 1}. {q.question}</p>
+                    <div className="space-y-2">
+                      {q.options?.map((opt, optIdx) => (
+                        <label key={optIdx} className="flex items-center gap-2 text-sm">
+                          <input type="radio" name={`q${idx}`} />
+                          <span>{String.fromCharCode(65 + optIdx)}. {opt}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
+          {/* Mapa Mental */}
           <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-6 text-white shadow-lg">
             <div className="flex items-center gap-2 mb-4">
               <FaBrain className="text-white text-xl" />
@@ -213,89 +240,6 @@ const PDFUploader = () => {
           </div>
         </motion.div>
       )}
-    </div>
-  );
-};
-
-// Componente Flashcard - VERSÃO SIMPLIFICADA SEM CSS 3D
-const FlashcardCard = ({ card }) => {
-  const [flipped, setFlipped] = useState(false);
-
-  if (!flipped) {
-    return (
-      <motion.div
-        whileHover={{ scale: 1.02 }}
-        className="cursor-pointer bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4 min-h-[120px] flex flex-col justify-center"
-        onClick={() => setFlipped(true)}
-      >
-        <p className="text-gray-800 dark:text-white font-medium text-center">{card.question}</p>
-        <p className="text-sm text-purple-600 dark:text-purple-400 text-center mt-2">🔍 Clique para ver a resposta</p>
-      </motion.div>
-    );
-  }
-
-  return (
-    <motion.div
-      whileHover={{ scale: 1.02 }}
-      className="cursor-pointer bg-green-50 dark:bg-green-900/30 rounded-lg p-4 min-h-[120px] flex flex-col justify-center"
-      onClick={() => setFlipped(false)}
-    >
-      <p className="text-gray-800 dark:text-white text-center">{card.answer}</p>
-      <p className="text-sm text-green-600 dark:text-green-400 text-center mt-2">✨ Clique para voltar</p>
-    </motion.div>
-  );
-};
-
-// Componente QuestionCard - VERSÃO SIMPLIFICADA
-const QuestionCard = ({ question, index }) => {
-  const [selected, setSelected] = useState(null);
-  const [showAnswer, setShowAnswer] = useState(false);
-
-  const checkAnswer = (option) => {
-    setSelected(option);
-    setShowAnswer(true);
-    if (option === question.correct) {
-      toast.success('✅ Resposta correta!');
-    } else {
-      toast.error(`❌ Resposta incorreta. A correta é: ${question.correct}`);
-    }
-  };
-
-  const resetQuestion = () => {
-    setSelected(null);
-    setShowAnswer(false);
-  };
-
-  return (
-    <div className="border-b border-gray-200 dark:border-gray-700 pb-6 last:border-0">
-      <div className="flex justify-between items-center mb-3">
-        <p className="font-semibold text-gray-800 dark:text-white">
-          {index + 1}. {question.question}
-        </p>
-        {showAnswer && (
-          <button onClick={resetQuestion} className="text-sm text-purple-600 hover:text-purple-700">
-            Tentar novamente 🔄
-          </button>
-        )}
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {question.options && question.options.map((option, optIdx) => (
-          <button
-            key={optIdx}
-            onClick={() => !showAnswer && checkAnswer(option)}
-            disabled={showAnswer}
-            className={`text-left p-3 rounded-lg transition-all ${
-              showAnswer && option === question.correct
-                ? 'bg-green-100 dark:bg-green-900/30 border-green-500'
-                : showAnswer && selected === option && option !== question.correct
-                ? 'bg-red-100 dark:bg-red-900/30 border-red-500'
-                : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600'
-            } border-2 ${showAnswer && option === question.correct ? 'border-green-500' : 'border-transparent'}`}
-          >
-            <span className="font-medium">{String.fromCharCode(65 + optIdx)}.</span> {option}
-          </button>
-        ))}
-      </div>
     </div>
   );
 };

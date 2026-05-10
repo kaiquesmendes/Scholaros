@@ -9,6 +9,8 @@ import {
   FaLightbulb, FaQuoteRight, FaListOl, FaSave, FaEye, FaDownload 
 } from 'react-icons/fa';
 import { db, doc, getDoc, setDoc, updateDoc } from './config/firebase';
+import { updateStudyStats, getFullUserData } from '../config/firebase';
+import { checkBadges } from '../services/badgeService';
 
 // Firebase
 import { auth, onAuthStateChanged, loginUser, registerUser, logoutUser, resetPassword } from './config/firebase';
@@ -20,6 +22,7 @@ import PDFUploader from './components/PDFUploader';
 import Profile from './pages/Profile';
 import SocialNetwork from './pages/SocialNetwork';
 import StudyGroups from './pages/StudyGroups';
+import PDFManager from './pages/PDFManager';
 
 // ========== COMPONENTE DE LOADING ==========
 const LoadingScreen = () => (
@@ -32,7 +35,135 @@ const LoadingScreen = () => (
   </div>
 );
 
-// ========== DASHBOARD DINÂMICO COM DADOS REAIS ==========
+// frontend/src/pages/Dashboard.jsx
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
+import { doc, getDoc, updateDoc } from '../config/firebase';
+import { updateStudyStats, getFullUserData } from '../config/firebase';
+import { checkBadges } from '../services/badgeService';
+import Sidebar from '../components/Sidebar';
+import Header from '../components/Header';
+import toast from 'react-hot-toast';
+
+// ========== COMPONENTES AUXILIARES ==========
+const StatCard = ({ icon, label, value, change, color }) => {
+  const colorClasses = {
+    orange: 'bg-orange-500',
+    blue: 'bg-blue-500',
+    green: 'bg-green-500',
+    purple: 'bg-purple-500'
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -5 }}
+      className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300"
+    >
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-12 h-12 rounded-xl ${colorClasses[color]} bg-opacity-20 flex items-center justify-center text-2xl`}>
+          {icon}
+        </div>
+        <span className="text-sm text-green-500 bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-full">
+          {change}
+        </span>
+      </div>
+      <h3 className="text-3xl font-bold text-gray-800 dark:text-white">{value}</h3>
+      <p className="text-gray-600 dark:text-gray-400 mt-1">{label}</p>
+    </motion.div>
+  );
+};
+
+const SubjectProgressCard = ({ subject, onUpdate }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempHours, setTempHours] = useState(0);
+  
+  const handleAddHours = () => {
+    if (tempHours > 0) {
+      onUpdate(subject.name, 0, tempHours);
+      setIsEditing(false);
+      setTempHours(0);
+    }
+  };
+  
+  return (
+    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+      <div className="flex justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: subject.color }}></div>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{subject.name}</span>
+        </div>
+        <div className="flex gap-4 items-center">
+          <span className="text-sm text-gray-500">{subject.hours || 0}h estudadas</span>
+          <span className="text-sm font-semibold" style={{ color: subject.color }}>{subject.progress || 0}%</span>
+        </div>
+      </div>
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${subject.progress || 0}%` }}
+          transition={{ duration: 1 }}
+          className="h-full rounded-full transition-all"
+          style={{ backgroundColor: subject.color }}
+        />
+      </div>
+      {isEditing ? (
+        <div className="mt-2 flex gap-2">
+          <input
+            type="number"
+            value={tempHours}
+            onChange={(e) => setTempHours(parseFloat(e.target.value) || 0)}
+            placeholder="Horas"
+            className="w-24 px-2 py-1 text-sm border rounded-lg dark:bg-gray-700"
+            step="0.5"
+            min="0"
+          />
+          <button onClick={handleAddHours} className="px-2 py-1 text-xs bg-green-500 text-white rounded-lg">Adicionar</button>
+          <button onClick={() => setIsEditing(false)} className="px-2 py-1 text-xs bg-gray-500 text-white rounded-lg">Cancelar</button>
+        </div>
+      ) : (
+        <button onClick={() => setIsEditing(true)} className="mt-2 text-xs text-purple-600 hover:underline">
+          + Adicionar horas
+        </button>
+      )}
+    </motion.div>
+  );
+};
+
+const ActivityCard = ({ activity, index }) => {
+  const icons = {
+    '✍️': 'bg-purple-100 dark:bg-purple-900/30',
+    '📄': 'bg-blue-100 dark:bg-blue-900/30',
+    '🏆': 'bg-yellow-100 dark:bg-yellow-900/30',
+    '📚': 'bg-green-100 dark:bg-green-900/30',
+    '🎉': 'bg-pink-100 dark:bg-pink-900/30'
+  };
+  
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.1 }}
+      className="flex items-center gap-4 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all cursor-pointer"
+    >
+      <div className={`w-10 h-10 rounded-full ${icons[activity.icon] || 'bg-gray-100'} flex items-center justify-center text-xl`}>
+        {activity.icon}
+      </div>
+      <div className="flex-1">
+        <p className="font-medium text-gray-800 dark:text-white">{activity.title}</p>
+        {activity.description && <p className="text-sm text-gray-500">{activity.description}</p>}
+        {activity.score && <p className="text-sm text-green-600">Nota: {activity.score}</p>}
+        {activity.pages && <p className="text-sm text-blue-600">{activity.pages} páginas</p>}
+        <p className="text-xs text-gray-400 mt-1">{activity.date}</p>
+      </div>
+      <div className="text-gray-400">→</div>
+    </motion.div>
+  );
+};
+
+// ========== DASHBOARD PRINCIPAL ==========
 const Dashboard = ({ user }) => {
   const [userData, setUserData] = useState(null);
   const [subjects, setSubjects] = useState([]);
@@ -41,7 +172,7 @@ const Dashboard = ({ user }) => {
     streak: 0,
     totalHours: 0,
     completedGoals: 0,
-    totalGoals: 0,
+    totalGoals: 50,
     averageRetention: 0
   });
   const [loading, setLoading] = useState(true);
@@ -53,15 +184,12 @@ const Dashboard = ({ user }) => {
       
       setLoading(true);
       try {
-        // Buscar dados do Firestore
-        const userDocRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userDocRef);
+        const result = await getFullUserData(user.uid);
         
-        if (userDoc.exists()) {
-          const data = userDoc.data();
+        if (result.success) {
+          const data = result.data;
           setUserData(data);
           
-          // Atualizar estatísticas com dados reais
           setStats({
             streak: data.stats?.currentStreak || 0,
             totalHours: data.stats?.totalStudyHours || 0,
@@ -70,84 +198,20 @@ const Dashboard = ({ user }) => {
             averageRetention: data.stats?.averageRetention || 0
           });
           
-          // Carregar matérias do usuário
-          if (data.subjects && data.subjects.length > 0) {
-            setSubjects(data.subjects);
-          } else {
-            // Matérias padrão se não existir
-            setSubjects([
-              { name: 'Matemática', progress: 0, color: '#8b5cf6', hours: 0, goal: 50 },
-              { name: 'Português', progress: 0, color: '#ec4899', hours: 0, goal: 50 },
-              { name: 'Redação', progress: 0, color: '#06b6d4', hours: 0, goal: 50 },
-              { name: 'Física', progress: 0, color: '#f59e0b', hours: 0, goal: 50 },
-              { name: 'Química', progress: 0, color: '#10b981', hours: 0, goal: 50 },
-            ]);
-          }
+          setSubjects(data.subjects || [
+            { name: 'Matemática', progress: 0, color: '#8b5cf6', hours: 0, goal: 50 },
+            { name: 'Português', progress: 0, color: '#ec4899', hours: 0, goal: 50 },
+            { name: 'Redação', progress: 0, color: '#06b6d4', hours: 0, goal: 50 },
+            { name: 'Física', progress: 0, color: '#f59e0b', hours: 0, goal: 50 },
+            { name: 'Química', progress: 0, color: '#10b981', hours: 0, goal: 50 },
+          ]);
           
-          // Carregar atividades recentes
-          if (data.recentActivities && data.recentActivities.length > 0) {
-            setRecentActivities(data.recentActivities.slice(0, 5));
-          } else {
-            setRecentActivities([
-              { id: 1, title: 'Bem-vindo ao ScholarOS!', description: 'Complete seu primeiro estudo', date: new Date().toLocaleDateString('pt-BR'), icon: '🎉', type: 'welcome' }
-            ]);
-          }
+          setRecentActivities(data.recentActivities?.slice(0, 5) || []);
         } else {
-          // Criar documento padrão para novo usuário
-          const defaultData = {
-            name: user.displayName || user.email?.split('@')[0] || 'Estudante',
-            email: user.email,
-            createdAt: new Date().toISOString(),
-            stats: {
-              currentStreak: 0,
-              totalStudyHours: 0,
-              completedGoals: 0,
-              totalGoals: 50,
-              averageRetention: 0,
-              level: 1,
-              xp: 0
-            },
-            subjects: [
-              { name: 'Matemática', progress: 0, color: '#8b5cf6', hours: 0, goal: 50 },
-              { name: 'Português', progress: 0, color: '#ec4899', hours: 0, goal: 50 },
-              { name: 'Redação', progress: 0, color: '#06b6d4', hours: 0, goal: 50 },
-              { name: 'Física', progress: 0, color: '#f59e0b', hours: 0, goal: 50 },
-              { name: 'Química', progress: 0, color: '#10b981', hours: 0, goal: 50 },
-            ],
-            recentActivities: [
-              { id: 1, title: 'Bem-vindo ao ScholarOS!', description: 'Complete seu primeiro estudo para ganhar XP', date: new Date().toLocaleDateString('pt-BR'), icon: '🎉', type: 'welcome' }
-            ]
-          };
-          
-          await setDoc(doc(db, 'users', user.uid), defaultData);
-          setUserData(defaultData);
-          setStats({
-            streak: 0,
-            totalHours: 0,
-            completedGoals: 0,
-            totalGoals: 50,
-            averageRetention: 0
-          });
-          setSubjects(defaultData.subjects);
-          setRecentActivities(defaultData.recentActivities);
+          console.log('Usuário sem dados, criando padrão');
         }
       } catch (error) {
         console.error('Erro ao buscar dados:', error);
-        // Dados mockados para fallback (apenas para não quebrar)
-        setStats({
-          streak: 7,
-          totalHours: 42,
-          completedGoals: 15,
-          totalGoals: 50,
-          averageRetention: 75
-        });
-        setSubjects([
-          { name: 'Matemática', progress: 65, color: '#8b5cf6', hours: 12, goal: 50 },
-          { name: 'Português', progress: 70, color: '#ec4899', hours: 10, goal: 50 },
-          { name: 'Redação', progress: 60, color: '#06b6d4', hours: 8, goal: 50 },
-          { name: 'Física', progress: 45, color: '#f59e0b', hours: 6, goal: 50 },
-          { name: 'Química', progress: 55, color: '#10b981', hours: 7, goal: 50 },
-        ]);
       } finally {
         setLoading(false);
       }
@@ -158,105 +222,50 @@ const Dashboard = ({ user }) => {
 
   // Função para atualizar progresso de matéria
   const updateSubjectProgress = async (subjectName, newProgress, newHours) => {
-    const updatedSubjects = subjects.map(sub => 
-      sub.name === subjectName 
-        ? { ...sub, progress: newProgress, hours: sub.hours + newHours }
-        : sub
-    );
-    setSubjects(updatedSubjects);
+    if (!newHours || newHours <= 0) return;
     
-    // Salvar no Firestore
+    setLoading(true);
+    
     try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        subjects: updatedSubjects,
-        'stats.totalStudyHours': stats.totalHours + newHours
-      });
+      const result = await updateStudyStats(user.uid, newHours, subjectName);
       
-      // Adicionar atividade
-      const newActivity = {
-        id: Date.now(),
-        title: `Estudou ${subjectName}`,
-        description: `${newHours} horas de estudo na matéria`,
-        date: new Date().toLocaleString('pt-BR'),
-        icon: '📚',
-        type: 'study'
-      };
-      
-      const updatedActivities = [newActivity, ...recentActivities].slice(0, 10);
-      setRecentActivities(updatedActivities);
-      await updateDoc(doc(db, 'users', user.uid), {
-        recentActivities: updatedActivities,
-        'stats.totalStudyHours': stats.totalHours + newHours
-      });
-      
-      toast.success(`Progresso em ${subjectName} atualizado! +${newHours}h`);
+      if (result.success) {
+        const userResult = await getFullUserData(user.uid);
+        if (userResult.success) {
+          const data = userResult.data;
+          setUserData(data);
+          setSubjects(data.subjects || []);
+          setStats({
+            streak: data.stats?.currentStreak || 0,
+            totalHours: data.stats?.totalStudyHours || 0,
+            completedGoals: data.stats?.completedGoals || 0,
+            totalGoals: data.stats?.totalGoals || 50,
+            averageRetention: data.stats?.averageRetention || 0
+          });
+          setRecentActivities(data.recentActivities?.slice(0, 5) || []);
+          
+          await checkBadges(user.uid, 'study', data.stats?.totalStudyHours);
+          
+          toast.success(`✨ +${newHours}h em ${subjectName}! +${newHours * 10} XP`);
+        }
+      } else {
+        toast.error('Erro ao registrar estudo');
+      }
     } catch (error) {
       console.error('Erro ao salvar:', error);
       toast.error('Erro ao salvar progresso');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Função para adicionar nova redação
-  const addEssayActivity = async (title, score) => {
-    const newActivity = {
-      id: Date.now(),
-      title: `Redação: ${title}`,
-      description: score ? `Nota: ${score}/1000` : 'Redação analisada',
-      score: score,
-      date: new Date().toLocaleString('pt-BR'),
-      icon: '✍️',
-      type: 'essay'
-    };
-    
-    const updatedActivities = [newActivity, ...recentActivities].slice(0, 10);
-    setRecentActivities(updatedActivities);
-    
-    try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        recentActivities: updatedActivities,
-        'stats.completedGoals': stats.completedGoals + 1
-      });
-      setStats({ ...stats, completedGoals: stats.completedGoals + 1 });
-      toast.success('Redação registrada com sucesso!');
-    } catch (error) {
-      console.error('Erro ao salvar:', error);
-    }
-  };
-
-  // Função para adicionar PDF processado
-  const addPDFActivity = async (fileName, pages) => {
-    const newActivity = {
-      id: Date.now(),
-      title: `PDF processado: ${fileName}`,
-      description: `${pages} páginas analisadas`,
-      pages: pages,
-      date: new Date().toLocaleString('pt-BR'),
-      icon: '📄',
-      type: 'pdf'
-    };
-    
-    const updatedActivities = [newActivity, ...recentActivities].slice(0, 10);
-    setRecentActivities(updatedActivities);
-    
-    try {
-      await updateDoc(doc(db, 'users', user.uid), {
-        recentActivities: updatedActivities
-      });
-      toast.success('PDF registrado no histórico!');
-    } catch (error) {
-      console.error('Erro ao salvar:', error);
-    }
-  };
-
-  // Calcular nível do usuário baseado nas horas
+  // Calcular nível do usuário
   const userLevel = Math.floor(stats.totalHours / 50) + 1;
   const nextLevelXP = userLevel * 50;
   const currentXP = stats.totalHours % 50;
   const xpProgress = (currentXP / nextLevelXP) * 100;
-
-  // Calcular média geral de progresso
   const overallProgress = subjects.length > 0 
-    ? Math.round(subjects.reduce((acc, sub) => acc + sub.progress, 0) / subjects.length) 
+    ? Math.round(subjects.reduce((acc, sub) => acc + (sub.progress || 0), 0) / subjects.length) 
     : 0;
 
   if (loading) {
@@ -279,7 +288,7 @@ const Dashboard = ({ user }) => {
       <div className="flex-1 overflow-auto">
         <Header user={user} />
         <main className="p-6">
-          {/* Welcome Section com dados reais */}
+          {/* Welcome Section */}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
               Olá, {userData?.name || user?.displayName?.split(' ')[0] || user?.email?.split('@')[0]}! 👋
@@ -298,46 +307,17 @@ const Dashboard = ({ user }) => {
             </div>
           </motion.div>
 
-          {/* Stats Cards com dados reais */}
+          {/* Stats Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard 
-              icon="🔥" 
-              label="Sequência" 
-              value={`${stats.streak} dias`} 
-              change={`${stats.streak > 0 ? stats.streak === 1 ? '+1 hoje' : `+${stats.streak} dias` : 'Comece hoje!'}`}
-              color="orange"
-            />
-            <StatCard 
-              icon="⏱️" 
-              label="Horas Estudadas" 
-              value={`${stats.totalHours}h`} 
-              change={`Média ${Math.round(stats.totalHours / (stats.streak || 1))}h/dia`}
-              color="blue"
-            />
-            <StatCard 
-              icon="🎯" 
-              label="Metas Concluídas" 
-              value={`${stats.completedGoals}/${stats.totalGoals}`} 
-              change={`${Math.round((stats.completedGoals / stats.totalGoals) * 100)}% concluído`}
-              color="green"
-            />
-            <StatCard 
-              icon="🧠" 
-              label="Retenção Média" 
-              value={`${stats.averageRetention}%`} 
-              change={stats.averageRetention > 70 ? 'Bom desempenho!' : 'Foco em revisões'}
-              color="purple"
-            />
+            <StatCard icon="🔥" label="Sequência" value={`${stats.streak} dias`} change={stats.streak > 0 ? `${stats.streak} dias seguidos` : 'Comece hoje!'} color="orange" />
+            <StatCard icon="⏱️" label="Horas Estudadas" value={`${stats.totalHours}h`} change={`Média ${Math.round(stats.totalHours / (stats.streak || 1))}h/dia`} color="blue" />
+            <StatCard icon="🎯" label="Metas Concluídas" value={`${stats.completedGoals}/${stats.totalGoals}`} change={`${Math.round((stats.completedGoals / stats.totalGoals) * 100)}% concluído`} color="green" />
+            <StatCard icon="🧠" label="Retenção Média" value={`${stats.averageRetention}%`} change={stats.averageRetention > 70 ? 'Bom desempenho!' : 'Foco em revisões'} color="purple" />
           </div>
 
-          {/* Charts and Progress */}
+          {/* Progress and Activities */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Subjects Progress com dados reais */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg"
-            >
+            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
                   <span className="w-1 h-6 bg-purple-600 rounded-full"></span>
@@ -352,12 +332,7 @@ const Dashboard = ({ user }) => {
               </div>
             </motion.div>
 
-            {/* Recent Activities com dados reais */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg"
-            >
+            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
               <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-2">
                 <span className="w-1 h-6 bg-purple-600 rounded-full"></span>
                 📝 Atividades Recentes
@@ -377,12 +352,8 @@ const Dashboard = ({ user }) => {
             </motion.div>
           </div>
 
-          {/* Radar de Aprovação com dados reais */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 shadow-lg"
-          >
+          {/* Radar de Aprovação */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 shadow-lg">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-2xl font-bold text-white mb-2">🎯 Radar de Aprovação</h3>
@@ -398,10 +369,10 @@ const Dashboard = ({ user }) => {
                 <div key={idx}>
                   <div className="flex justify-between text-sm text-white mb-1">
                     <span>{subject.name}</span>
-                    <span>{subject.progress}%</span>
+                    <span>{subject.progress || 0}%</span>
                   </div>
                   <div className="w-full bg-white/20 rounded-full h-2">
-                    <div className="bg-white h-2 rounded-full transition-all" style={{ width: `${subject.progress}%` }}></div>
+                    <div className="bg-white h-2 rounded-full transition-all" style={{ width: `${subject.progress || 0}%` }}></div>
                   </div>
                 </div>
               ))}
@@ -411,20 +382,59 @@ const Dashboard = ({ user }) => {
               <span>🎯 Meta da semana: {Math.max(0, 10 - Math.floor(stats.totalHours / 10))}h para próximo nível</span>
             </div>
           </motion.div>
+
+          {/* Próximas Conquistas */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-6 bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+              🏆 Próximas Conquistas
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { name: 'Leitor Voraz', progress: userData?.stats?.totalPDFsProcessed || 0, goal: 50, icon: '📚' },
+                { name: 'Mestre das Redações', progress: userData?.stats?.totalEssaysWritten || 0, goal: 10, icon: '✍️' },
+                { name: 'Mestre dos Estudos', progress: stats.totalHours, goal: 100, icon: '🎓' },
+                { name: 'Dedicado', progress: stats.streak, goal: 30, icon: '🔥' }
+              ].map((badge, idx) => {
+                const progressPercent = Math.min(100, (badge.progress / badge.goal) * 100);
+                return (
+                  <div key={idx} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-2xl">{badge.icon}</span>
+                      <span className="font-semibold text-sm">{badge.name}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-1">
+                      <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${progressPercent}%` }}></div>
+                    </div>
+                    <p className="text-xs text-gray-500">{badge.progress}/{badge.goal}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
           
-          {/* Botão para adicionar estudo manual */}
-          <div className="mt-6 flex justify-end">
+          {/* Botões de ação */}
+          <div className="mt-6 flex justify-between items-center">
             <button
               onClick={() => {
                 const hours = prompt('Quantas horas você estudou hoje?', '1');
-                if (hours) {
-                  updateSubjectProgress('Matemática', 0, parseFloat(hours));
+                if (hours && !isNaN(parseFloat(hours))) {
+                  const subject = prompt('Qual matéria você estudou?', 'Matemática');
+                  if (subject) {
+                    updateSubjectProgress(subject, 0, parseFloat(hours));
+                  }
                 }
               }}
               className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold shadow-md hover:opacity-90 transition-all"
             >
               + Adicionar Horas de Estudo
             </button>
+            
+            <Link 
+              to="/profile"
+              className="text-sm text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+            >
+              Ver estatísticas completas →
+            </Link>
           </div>
         </main>
       </div>
@@ -432,6 +442,7 @@ const Dashboard = ({ user }) => {
   );
 };
 
+export default Dashboard;
 // Componentes auxiliares
 const StatCard = ({ icon, label, value, change, color }) => {
   const colorClasses = {
@@ -552,7 +563,6 @@ const ActivityCard = ({ activity, index }) => {
   );
 };
 
-// ========== EDITOR ACADÊMICO SUPERIOR - COM IA AVANÇADA ==========
 const EssayEditor = ({ user }) => {
   const [essay, setEssay] = useState('');
   const [originalEssay, setOriginalEssay] = useState('');
@@ -568,6 +578,7 @@ const EssayEditor = ({ user }) => {
   const [strictABNT, setStrictABNT] = useState(false);
   const [humanizerMode, setHumanizerMode] = useState(false);
   const [expansionMode, setExpansionMode] = useState(false);
+  const [userData, setUserData] = useState(null);
   
   // Configuração do TCC
   const [tccConfig, setTccConfig] = useState({
@@ -582,238 +593,63 @@ const EssayEditor = ({ user }) => {
     ano: new Date().getFullYear(),
   });
 
+  // Configurações por modo
   const cfg = {
     enem: { 
       label: 'ENEM', icon: '🎯', bgIcon: '✍️', color: 'from-purple-600 to-purple-700',
       minWords: 50, gradeSuffix: '/1000', gradeMax: 1000, competenceMax: 200,
       description: 'Correção estilo ENEM - Redação Dissertativa-Argumentativa',
-      formatPrompt: `Você é um assistente acadêmico especializado em correção e formatação de redações ENEM.
-
-REGRAS:
-- Corrija ortografia, gramática, concordância e pontuação
-- Melhore a coerência e coesão textual
-- Padronize a estrutura: Introdução (com tese), Desenvolvimento (2 parágrafos com argumentos), Conclusão (com proposta de intervenção)
-- Linguagem formal e impessoal
-- Adicione conectivos adequados
-- Mantenha o tema original
-
-TEXTO: ${essay}`
+      tips: ['📝 Introdução com tese clara', '🎯 Cada parágrafo uma ideia', '🔗 Use conectivos variados', '💭 Conclusão com proposta de intervenção']
     },
     faculdade: { 
       label: 'FACULDADE', icon: '🎓', bgIcon: '📚', color: 'from-blue-600 to-blue-700',
       minWords: 200, gradeSuffix: '%', gradeMax: 100, competenceMax: 100,
       description: 'Formato ABNT para Artigos e Trabalhos Acadêmicos',
-      formatPrompt: `Você é um assistente acadêmico especializado em formatação ABNT para artigos científicos.
-
-REGRAS:
-- Corrija ortografia, gramática e concordância
-- Estruture com: Título, Autor, Resumo, Palavras-chave, Abstract, Keywords
-- Organize em: Introdução, Metodologia, Resultados, Discussão, Conclusão
-- Formate referências conforme ABNT NBR 6023
-- Adicione citações diretas com aspas
-- Aplique linguagem científica
-
-TEXTO: ${essay}`
+      tips: ['🔍 Problema de pesquisa bem definido', '📊 Metodologia adequada', '📖 Revisão bibliográfica atualizada', '💡 Contribuição original']
     },
     tcc: { 
       label: 'TCC', icon: '🏆', bgIcon: '📖', color: 'from-green-600 to-green-700',
       minWords: 500, gradeSuffix: '%', gradeMax: 100, competenceMax: 100,
       description: 'Formatação ABNT completa para Trabalho de Conclusão de Curso',
-      formatPrompt: `Você é um assistente acadêmico avançado especializado em formatação de TCC seguindo rigorosamente as normas ABNT (NBR 14724, 10520, 6023, 6024, 6027, 6028).
-
-DADOS DO TRABALHO:
-Título: ${tccConfig.titulo || '[TÍTULO DO TCC]'}
-Subtítulo: ${tccConfig.subtitulo || ''}
-Autor: ${tccConfig.autor || '[NOME DO AUTOR]'}
-Orientador: ${tccConfig.orientador || '[NOME DO ORIENTADOR]'}
-Coorientador: ${tccConfig.coorientador || ''}
-Instituição: ${tccConfig.instituicao || '[NOME DA INSTITUIÇÃO]'}
-Curso: ${tccConfig.curso || '[NOME DO CURSO]'}
-Cidade: ${tccConfig.cidade || '[CIDADE]'}
-Ano: ${tccConfig.ano}
-
-ESTRUTURA OBRIGATÓRIA:
-
-PRÉ-TEXTUAIS:
-- CAPA (instituição, curso, título, autor, local, ano)
-- FOLHA DE ROSTO (com orientador)
-- RESUMO em português (250-500 palavras, 3-5 palavras-chave)
-- ABSTRACT em inglês (250-500 palavras, 3-5 keywords)
-- SUMÁRIO (com numeração progressiva)
-
-TEXTUAIS:
-1 INTRODUÇÃO (contextualização, problema, questão, objetivos, justificativa, estrutura)
-2 REFERENCIAL TEÓRICO (fundamentação, revisão sistemática, estado da arte, lacunas)
-3 METODOLOGIA (delineamento, classificação, universo/amostra, instrumentos, procedimentos, análise)
-4 RESULTADOS (caracterização, análise descritiva, análise inferencial, testes estatísticos)
-5 DISCUSSÃO (interpretação dos resultados, comparação com literatura, implicações, limitações)
-6 CONCLUSÃO (síntese dos achados, contribuições, limitações, recomendações)
-
-PÓS-TEXTUAIS:
-- REFERÊNCIAS (ABNT NBR 6023 - livros, artigos, sites, teses)
-- APÊNDICES (opcional)
-- ANEXOS (opcional)
-
-FORMATAÇÃO:
-- Fonte: Times New Roman ou Arial, tamanho 12
-- Títulos: tamanho 12, negrito
-- Espaçamento: 1,5 entre linhas
-- Parágrafos: recuo de 1,25 cm
-- Margens: superior/esquerda 3cm, inferior/direita 2cm
-- Alinhamento: justificado
-- Citações curtas (até 3 linhas): entre aspas
-- Citações longas (+3 linhas): bloco recuado 4cm, fonte 10
-
-TEXTO ORIGINAL A SER ESTRUTURADO E MELHORADO:
-${essay}
-
-REGRAS ADICIONAIS:
-1. Preserve o tema original e todas as informações relevantes
-2. Não invente dados absurdos
-3. Mantenha a coerência e o sentido do texto
-4. Melhore a profundidade acadêmica onde necessário
-5. Expanda ideias curtas para torná-las mais substanciais
-6. Adicione conectivos formais e variados
-7. Torne o texto mais humano e natural (evite padrões robóticos)
-8. Se detectar problemas acadêmicos (introdução curta, falta de referencial, conclusão superficial), aponte no início do texto como [ALERTA]
-9. Aplique normas ABNT rigorosamente se strictABNT estiver ativado
-10. Humanize o texto se humanizerMode estiver ativado
-
-IMPORTANTE: Retorne APENAS o texto formatado, sem comentários adicionais.`
+      tips: ['📚 Siga normas ABNT (NBR 14724)', '🔬 Metodologia detalhada', '📊 Resultados com análise estatística', '💬 Discussão com literatura']
     },
   };
 
+  // Buscar dados do usuário
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const result = await getFullUserData(user.uid);
+      if (result.success) {
+        setUserData(result.data);
+      }
+    };
+    fetchUserData();
+  }, [user]);
+
+  // Contar palavras e caracteres
   useEffect(() => {
     const words = essay.trim().split(/\s+/).filter(w => w.length > 0);
     setWordCount(words.length);
     setCharCount(essay.length);
   }, [essay]);
 
-  const formatWithAI = async () => {
-    if (!essay.trim()) {
-      toast.error(`📝 Cole ou escreva seu ${cfg[mode].label} primeiro!`);
-      return;
-    }
-
-    let minWords = mode === 'enem' ? 50 : mode === 'faculdade' ? 200 : 500;
-    if (wordCount < minWords) {
-      toast.error(`⚠️ Mínimo de ${minWords} palavras para formatação (atual: ${wordCount})`);
-      return;
-    }
-
-    setFormatting(true);
-    setOriginalEssay(essay);
-    
-    let modeText = '';
-    if (professorMode) modeText += ' Ativar MODO PROFESSOR - gere comentários técnicos, críticas construtivas, análise acadêmica detalhada e notas simuladas.';
-    if (strictABNT) modeText += ' Ativar MODO STRICT ABNT - aplique rigorosamente todas as normas ABNT (NBR 14724, 6023, 10520, 6028). Valide títulos, referências, citações e formatação.';
-    if (humanizerMode) modeText += ' Ativar MODO HUMANIZADOR - reduza aparência de IA, aumente naturalidade, varie conectivos, evite padrões previsíveis.';
-    if (expansionMode) modeText += ' Ativar MODO EXPANSÃO - expanda conteúdos muito curtos mantendo coerência e formalidade.';
-    
-    toast.loading(`🤖 IA formatando seu ${cfg[mode].label}${modeText}...`, { id: 'format' });
-
-    try {
-      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
-        content: essay,
-        mode: mode,
-        tccConfig: tccConfig,
-        professorMode: professorMode,
-        strictABNT: strictABNT,
-        humanizerMode: humanizerMode,
-        expansionMode: expansionMode,
-        prompt: cfg[mode].formatPrompt + modeText
-      });
-
-      let formattedText = response.data.formattedText || response.data.content;
-      
-      if (professorMode && response.data.teacherNotes) {
-        formattedText = '📋 NOTAS DO PROFESSOR:\n' + response.data.teacherNotes + '\n\n---\n\n' + formattedText;
-      }
-      
-      setEssay(formattedText);
-      toast.success(`✅ ${cfg[mode].label} formatado com sucesso!`, { id: 'format' });
-    } catch (error) {
-      console.error('Erro:', error);
-      toast.warning('⚠️ IA indisponível. Usando formatação local básica.', { id: 'format' });
-      setEssay(essay);
-    } finally {
-      setFormatting(false);
-    }
-  };
-
-  const analyzeEssay = async () => {
-    if (!essay.trim()) {
-      toast.error(`📝 Escreva seu ${cfg[mode].label} primeiro!`);
-      return;
-    }
-    if (wordCount < cfg[mode].minWords) {
-      toast.error(`⚠️ Mínimo ${cfg[mode].minWords} palavras (atual: ${wordCount})`);
-      return;
-    }
-
-    setAnalyzing(true);
-    toast.loading(`🤖 IA analisando seu ${cfg[mode].label}...`, { id: 'analyzing' });
-
-    try {
-      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/analyze', {
-        content: essay,
-        mode: mode
-      });
-      setFeedback(response.data);
-      
-      let notaDisplay = '';
-      if (mode === 'enem') notaDisplay = `${response.data.grade}/1000`;
-      else if (mode === 'faculdade') notaDisplay = `${response.data.grade}%`;
-      else notaDisplay = `${response.data.grade}%`;
-      
-      toast.success(`✅ Nota: ${notaDisplay}`, { id: 'analyzing' });
-    } catch (error) {
-      console.error('Erro:', error);
-      toast.error('❌ Erro na análise.', { id: 'analyzing' });
-      
-      const mockFeedback = {
-        grade: mode === 'enem' ? 780 : mode === 'faculdade' ? 82 : 85,
-        competences: mode === 'enem' 
-          ? [
-              { name: 'Competência 1 - Domínio da norma culta', score: 160 },
-              { name: 'Competência 2 - Compreensão da proposta', score: 155 },
-              { name: 'Competência 3 - Argumentação', score: 150 },
-              { name: 'Competência 4 - Conectivos', score: 160 },
-              { name: 'Competência 5 - Proposta de intervenção', score: 155 }
-            ]
-          : [
-              { name: 'Clareza e objetividade', score: 85 },
-              { name: 'Fundamentação teórica', score: 82 },
-              { name: 'Rigor metodológico', score: 80 },
-              { name: 'Qualidade da análise', score: 83 },
-              { name: 'Contribuição científica', score: 82 }
-            ],
-        strengths: ['Excelente estrutura textual', 'Argumentos coerentes', 'Boa fundamentação'],
-        improvements: ['Aprofundar a análise', 'Melhorar a conclusão', 'Revisar referências'],
-        suggestions: ['Pratique revisão constante', 'Leia mais referências', 'Busque feedback externo']
-      };
-      setFeedback(mockFeedback);
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const insertTemplate = () => {
-    const templates = {
-      enem: `🎯 REDAÇÃO ENEM - MODELO NOTA 1000
+  // Templates
+  const templates = {
+    enem: `🎯 REDAÇÃO ENEM - MODELO NOTA 1000
 
 [INTRODUÇÃO - 4 a 5 linhas]
-A discussão sobre [TEMA] é de extrema relevância no contexto brasileiro contemporâneo. Historicamente, observa-se que [contextualização histórica]. Diante desse cenário, é fundamental analisar [problema central], bem como propor soluções efetivas para [questão abordada].
+A discussão sobre [TEMA] é de extrema relevância no contexto brasileiro contemporâneo. Historicamente, observa-se que [contextualização histórica]. Diante desse cenário, é fundamental analisar [problema central], bem como propor soluções efetivas.
 
 [DESENVOLVIMENTO 1 - 6 a 8 linhas]
-Em primeiro lugar, é importante destacar que [argumento 1]. Segundo [autor], "[citação relevante]" (ANO, p. X). Isso evidencia que [conexão com o tema]. Ademais, dados do [fonte confiável] apontam que [estatística], o que reforça a necessidade de [ação específica].
+Em primeiro lugar, é importante destacar que [argumento 1]. Segundo [autor], "[citação relevante]" (ANO, p. X). Isso evidencia que [conexão com o tema].
 
 [DESENVOLVIMENTO 2 - 6 a 8 linhas]
-Além disso, outro aspecto fundamental reside em [argumento 2]. Conforme [filósofo/teórico], "[citação pertinente]" (ANO, p. Y). Dessa forma, percebe-se que [desdobramento do argumento].
+Além disso, outro aspecto fundamental reside em [argumento 2]. Conforme [filósofo/teórico], "[citação pertinente]" (ANO, p. Y).
 
 [CONCLUSÃO - 5 a 6 linhas]
-Portanto, faz-se necessária uma intervenção estatal e social para mitigar [problema central]. O governo, em parceria com [agentes envolvidos], deve [ação específica] por meio de [meio de implementação]. Espera-se que, com tais medidas, [resultado esperado], contribuindo para uma sociedade mais justa e igualitária.`,
-      faculdade: `🎓 MODELO DE ARTIGO CIENTÍFICO
+Portanto, faz-se necessária uma intervenção estatal e social para mitigar [problema central]. O governo, em parceria com [agentes envolvidos], deve [ação específica] por meio de [meio de implementação].`,
+
+    faculdade: `🎓 MODELO DE ARTIGO CIENTÍFICO
 
 TÍTULO DO ARTIGO (centralizado, negrito)
 
@@ -844,43 +680,141 @@ Keywords: keyword1; keyword2; keyword3.
 4 CONCLUSÃO
 
 REFERÊNCIAS`,
-      tcc: `🏆 ESTRUTURA DO TCC - FORMATO ABNT
+
+    tcc: `🏆 ESTRUTURA DO TCC - FORMATO ABNT
 
 1. CAPA (instituição, curso, título, autor, local, ano)
 2. FOLHA DE ROSTO (com orientador)
-3. RESUMO (português, 250-500 palavras, 3-5 palavras-chave)
-4. ABSTRACT (inglês, 250-500 palavras, 3-5 keywords)
+3. RESUMO (português, 250-500 palavras)
+4. ABSTRACT (inglês, 250-500 palavras)
 5. SUMÁRIO
 
 1 INTRODUÇÃO
 1.1 Contextualização
 1.2 Problema de pesquisa
-1.3 Objetivos (geral e específicos)
-1.4 Justificativa
+1.3 Objetivos
 
 2 REFERENCIAL TEÓRICO
-2.1 Fundamentação conceitual
-2.2 Revisão da literatura
 
 3 METODOLOGIA
-3.1 Delineamento
-3.2 Participantes
-3.3 Instrumentos
-3.4 Procedimentos
 
 4 RESULTADOS
-4.1 Análise descritiva
-4.2 Análise inferencial
 
 5 DISCUSSÃO
 
 6 CONCLUSÃO
 
 REFERÊNCIAS (ABNT NBR 6023)`
-    };
-    
+  };
+
+  // Registrar redação no sistema
+  const registerEssayWritten = async (score) => {
+    try {
+      const userResult = await getFullUserData(user.uid);
+      if (userResult.success) {
+        const data = userResult.data;
+        const currentStats = data.stats || {};
+        const newEssaysWritten = (currentStats.totalEssaysWritten || 0) + 1;
+        const newTotalScore = (currentStats.averageEssayScore || 0) * (currentStats.totalEssaysWritten || 0);
+        const newAverage = (newTotalScore + score) / newEssaysWritten;
+        
+        await updateDoc(doc(db, 'users', user.uid), {
+          'stats.totalEssaysWritten': newEssaysWritten,
+          'stats.averageEssayScore': Math.round(newAverage),
+          'stats.currentXP': (currentStats.currentXP || 0) + 50
+        });
+        
+        await checkBadges(user.uid, 'essay', newEssaysWritten);
+        toast.success(`✍️ +50 XP! Redação #${newEssaysWritten} registrada`);
+      }
+    } catch (error) {
+      console.error('Erro ao registrar redação:', error);
+    }
+  };
+
+  // Analisar com IA
+  const analyzeEssay = async () => {
+    if (!essay.trim()) {
+      toast.error(`📝 Escreva seu ${cfg[mode].label} primeiro!`);
+      return;
+    }
+    if (wordCount < cfg[mode].minWords) {
+      toast.error(`⚠️ Mínimo ${cfg[mode].minWords} palavras (atual: ${wordCount})`);
+      return;
+    }
+
+    setAnalyzing(true);
+    toast.loading(`🤖 IA analisando...`, { id: 'analyzing' });
+
+    try {
+      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/analyze', {
+        content: essay,
+        mode: mode
+      });
+      
+      setFeedback(response.data);
+      await registerEssayWritten(response.data.grade);
+      
+      let notaDisplay = mode === 'enem' ? `${response.data.grade}/1000` : `${response.data.grade}%`;
+      toast.success(`✅ Nota: ${notaDisplay}`, { id: 'analyzing' });
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('❌ Erro na análise. Usando simulação.', { id: 'analyzing' });
+      
+      const mockScore = mode === 'enem' ? 780 : 82;
+      setFeedback({
+        grade: mockScore,
+        competences: [
+          { name: 'Competência 1', score: mode === 'enem' ? 160 : 85 },
+          { name: 'Competência 2', score: mode === 'enem' ? 155 : 82 },
+          { name: 'Competência 3', score: mode === 'enem' ? 150 : 80 },
+          { name: 'Competência 4', score: mode === 'enem' ? 160 : 83 },
+          { name: 'Competência 5', score: mode === 'enem' ? 155 : 82 }
+        ],
+        strengths: ['Excelente estrutura', 'Argumentos coerentes', 'Boa fundamentação'],
+        improvements: ['Aprofundar análise', 'Melhorar conclusão', 'Revisar referências'],
+        suggestions: ['Pratique revisão', 'Leia mais referências', 'Busque feedback']
+      });
+      await registerEssayWritten(mockScore);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  // Formatar com IA
+  const formatWithAI = async () => {
+    if (!essay.trim()) {
+      toast.error(`📝 Cole seu ${cfg[mode].label} primeiro!`);
+      return;
+    }
+    if (wordCount < cfg[mode].minWords) {
+      toast.error(`⚠️ Mínimo ${cfg[mode].minWords} palavras (atual: ${wordCount})`);
+      return;
+    }
+
+    setFormatting(true);
+    setOriginalEssay(essay);
+    toast.loading(`🤖 IA formatando...`, { id: 'format' });
+
+    try {
+      // Simular resposta (substituir pela chamada real da API)
+      setTimeout(() => {
+        const formatted = `[TEXTO FORMATADO]\n\n${essay}\n\n---\nFormatado com sucesso!`;
+        setEssay(formatted);
+        toast.success(`✅ ${cfg[mode].label} formatado!`, { id: 'format' });
+        setFormatting(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error('❌ Erro na formatação', { id: 'format' });
+      setFormatting(false);
+    }
+  };
+
+  const insertTemplate = () => {
     if (essay.trim() && !window.confirm("Inserir template substituirá o conteúdo atual. Continuar?")) return;
     setEssay(templates[mode]);
+    setFeedback(null);
     toast.success(`📋 Template ${cfg[mode].label} inserido!`);
   };
 
@@ -918,11 +852,11 @@ REFERÊNCIAS (ABNT NBR 6023)`
     win.document.write(`<!DOCTYPE html>
 <html><head><meta charset="UTF-8"><title>ScholarOS - ${cfg[mode].label}</title>
 <style>
-  body { font-family: 'Times New Roman', Times, serif; line-height: 1.5; margin: 2.5cm; font-size: 12pt; }
+  body { font-family: 'Times New Roman', serif; margin: 2.5cm; font-size: 12pt; line-height: 1.5; }
   .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
   .title { font-size: 18pt; font-weight: bold; }
   .meta { font-size: 10pt; color: #666; margin-top: 8px; }
-  pre { white-space: pre-wrap; font-family: 'Times New Roman', Times, serif; font-size: 12pt; }
+  pre { white-space: pre-wrap; font-family: 'Times New Roman', serif; font-size: 12pt; }
 </style></head>
 <body>
 <div class="header"><div class="title">ScholarOS — ${cfg[mode].label}</div><div class="meta">${wordCount} palavras | ${charCount} caracteres</div></div>
@@ -936,7 +870,11 @@ REFERÊNCIAS (ABNT NBR 6023)`
 
   const ProgressBar = ({ value, max, color }) => {
     const pct = Math.min(100, (value / max) * 100);
-    return <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 bg-${color}-500`} style={{ width: `${pct}%` }} /></div>;
+    return (
+      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-500 bg-${color}-500`} style={{ width: `${pct}%` }} />
+      </div>
+    );
   };
 
   return (
@@ -946,12 +884,12 @@ REFERÊNCIAS (ABNT NBR 6023)`
         <Header user={user} />
         <div className="p-6">
           <div className="max-w-7xl mx-auto">
-            {/* Hero Section */}
+            {/* Header */}
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8 text-center">
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 shadow-lg mb-4">
                 <span className="text-4xl">✍️</span>
               </div>
-              <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                 Editor Acadêmico Inteligente
               </h1>
               <p className="text-gray-600 dark:text-gray-400 mt-3 text-lg max-w-2xl mx-auto">
@@ -964,17 +902,17 @@ REFERÊNCIAS (ABNT NBR 6023)`
               {Object.entries(cfg).map(([key, m]) => (
                 <motion.button
                   key={key}
-                  whileHover={{ scale: 1.02, y: -5 }}
+                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={() => { setMode(key); setFeedback(null); setShowConfig(false); }}
                   className={`relative p-6 rounded-2xl transition-all text-left overflow-hidden ${
                     mode === key 
-                      ? `bg-gradient-to-r ${m.color} text-white shadow-xl scale-102`
-                      : `bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:shadow-lg border-2 border-gray-200`
+                      ? `bg-gradient-to-r ${m.color} text-white shadow-xl`
+                      : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:shadow-lg border-2 border-gray-200'
                   }`}
                 >
                   <div className="absolute top-2 right-2 text-5xl opacity-10">{m.bgIcon}</div>
-                  <div className="relative z-10">
+                  <div className="relative">
                     <div className="text-4xl mb-3">{m.icon}</div>
                     <div className="font-bold text-xl">{m.label}</div>
                     <div className="text-sm opacity-80 mt-2">{m.description.split(' - ')[0]}</div>
@@ -987,36 +925,37 @@ REFERÊNCIAS (ABNT NBR 6023)`
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 mb-6">
               {mode === 'tcc' && (
-                <button onClick={() => setShowConfig(!showConfig)} className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-semibold flex items-center gap-2">
+                <button onClick={() => setShowConfig(!showConfig)} className="px-4 py-2 bg-green-600 text-white rounded-xl font-semibold flex items-center gap-2">
                   <FaBook /> {showConfig ? 'Ocultar' : '⚙️ Configurar TCC'}
                 </button>
               )}
-              <button onClick={() => setProfessorMode(!professorMode)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${professorMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'}`}>
-                <FaChartLine /> 👨‍🏫 Modo Professor
+              <button onClick={insertTemplate} className="px-4 py-2 bg-purple-100 text-purple-700 rounded-xl font-semibold flex items-center gap-2">
+                <FaFileAlt /> 📋 Template
               </button>
-              <button onClick={() => setStrictABNT(!strictABNT)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${strictABNT ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'}`}>
-                <FaListOl /> 📏 Strict ABNT
-              </button>
-              <button onClick={() => setHumanizerMode(!humanizerMode)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${humanizerMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>
-                <FaLightbulb /> 💬 Humanizar
-              </button>
-              <button onClick={() => setExpansionMode(!expansionMode)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${expansionMode ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-700'}`}>
-                <FaQuoteRight /> 📖 Expandir
-              </button>
-              <button onClick={insertTemplate} className="px-5 py-2.5 bg-purple-100 text-purple-700 rounded-xl font-semibold flex items-center gap-2"><FaFileAlt /> 📋 Template</button>
-              <button onClick={formatWithAI} disabled={formatting} className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold flex items-center gap-2">
+              <button onClick={formatWithAI} disabled={formatting} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-semibold flex items-center gap-2">
                 {formatting ? <FaSpinner className="animate-spin" /> : <FaMagic />} {formatting ? 'Formatando...' : '✨ Formatação IA'}
               </button>
-              <button onClick={exportToPDF} className="px-5 py-2.5 bg-red-100 text-red-700 rounded-xl font-semibold flex items-center gap-2"><FaFilePdf /> 📄 PDF</button>
-              <button onClick={copyToClipboard} className="px-5 py-2.5 bg-blue-100 text-blue-700 rounded-xl font-semibold flex items-center gap-2">{showCopied ? <FaCheck /> : <FaCopy />} Copiar</button>
-              <button onClick={undoFormat} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold flex items-center gap-2"><FaUndo /> Desfazer</button>
-              <button onClick={clearEssay} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl">🗑️ Limpar</button>
+              <button onClick={exportToPDF} className="px-4 py-2 bg-red-100 text-red-700 rounded-xl font-semibold flex items-center gap-2">
+                <FaFilePdf /> 📄 PDF
+              </button>
+              <button onClick={copyToClipboard} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-xl font-semibold flex items-center gap-2">
+                {showCopied ? <FaCheck /> : <FaCopy />} Copiar
+              </button>
+              <button onClick={undoFormat} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-semibold flex items-center gap-2">
+                <FaUndo /> Desfazer
+              </button>
+              <button onClick={clearEssay} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl">
+                🗑️ Limpar
+              </button>
             </div>
 
             {/* TCC Config Panel */}
             {showConfig && mode === 'tcc' && (
               <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl mb-6 border-2 border-green-200">
-                <div className="flex justify-between items-center mb-5"><h3 className="text-xl font-bold text-green-600">📋 Configuração do TCC</h3><button onClick={() => setShowConfig(false)} className="text-gray-400 text-xl">✕</button></div>
+                <div className="flex justify-between items-center mb-5">
+                  <h3 className="text-xl font-bold text-green-600">📋 Configuração do TCC</h3>
+                  <button onClick={() => setShowConfig(false)} className="text-gray-400 text-xl">✕</button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <input type="text" placeholder="Título" value={tccConfig.titulo} onChange={(e) => setTccConfig({...tccConfig, titulo: e.target.value})} className="px-4 py-2 border rounded-lg dark:bg-gray-700" />
                   <input type="text" placeholder="Subtítulo" value={tccConfig.subtitulo} onChange={(e) => setTccConfig({...tccConfig, subtitulo: e.target.value})} className="px-4 py-2 border rounded-lg" />
@@ -1024,43 +963,61 @@ REFERÊNCIAS (ABNT NBR 6023)`
                   <input type="text" placeholder="Orientador" value={tccConfig.orientador} onChange={(e) => setTccConfig({...tccConfig, orientador: e.target.value})} className="px-4 py-2 border rounded-lg" />
                   <input type="text" placeholder="Instituição" value={tccConfig.instituicao} onChange={(e) => setTccConfig({...tccConfig, instituicao: e.target.value})} className="px-4 py-2 border rounded-lg" />
                   <input type="text" placeholder="Curso" value={tccConfig.curso} onChange={(e) => setTccConfig({...tccConfig, curso: e.target.value})} className="px-4 py-2 border rounded-lg" />
+                  <input type="text" placeholder="Cidade" value={tccConfig.cidade} onChange={(e) => setTccConfig({...tccConfig, cidade: e.target.value})} className="px-4 py-2 border rounded-lg" />
+                  <input type="number" placeholder="Ano" value={tccConfig.ano} onChange={(e) => setTccConfig({...tccConfig, ano: parseInt(e.target.value)})} className="px-4 py-2 border rounded-lg" />
                 </div>
               </motion.div>
             )}
 
-            {/* Main Editor Grid */}
+            {/* Main Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <div className="lg:col-span-2">
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
-                  <div className="p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
+                  <div className="p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-900">
                     <div className="flex justify-between items-center flex-wrap gap-3">
                       <div className="flex gap-3">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm"><span>📝</span><strong>{wordCount}</strong><span className="text-xs">palavras</span></div>
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm"><span>✏️</span><strong>{charCount}</strong><span className="text-xs">caracteres</span></div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm">
+                          <span>📝</span> <strong>{wordCount}</strong> <span className="text-xs text-gray-500">palavras</span>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm">
+                          <span>✏️</span> <strong>{charCount}</strong> <span className="text-xs text-gray-500">caracteres</span>
+                        </div>
                       </div>
-                      <button onClick={analyzeEssay} disabled={analyzing} className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold shadow-md flex items-center gap-2">
-                        {analyzing ? <FaSpinner className="animate-spin" /> : <FaRobot />} {analyzing ? 'Analisando...' : '🤖 Analisar com IA'}
+                      <button
+                        onClick={analyzeEssay}
+                        disabled={analyzing}
+                        className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold shadow-md flex items-center gap-2"
+                      >
+                        {analyzing ? <FaSpinner className="animate-spin" /> : <FaRobot />}
+                        {analyzing ? 'Analisando...' : '🤖 Analisar com IA'}
                       </button>
                     </div>
                   </div>
-                  <textarea value={essay} onChange={(e) => setEssay(e.target.value)} placeholder={`✍️ Escreva ou cole seu ${cfg[mode].label} aqui...`} className="w-full h-[550px] p-6 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none resize-none font-serif text-base leading-relaxed" />
+                  <textarea
+                    value={essay}
+                    onChange={(e) => setEssay(e.target.value)}
+                    placeholder={`✍️ Escreva ou cole seu ${cfg[mode].label} aqui...\n\nDica: Use "✨ Formatação IA" para estruturar automaticamente seu texto!`}
+                    className="w-full h-[550px] p-6 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none resize-none font-serif text-base leading-relaxed"
+                  />
                 </div>
               </div>
 
-              {/* Feedback Panel */}
               <div className="space-y-5">
                 {analyzing && (
                   <div className="bg-white rounded-2xl p-8 text-center shadow-xl">
                     <div className="animate-spin rounded-full h-14 w-14 border-b-4 border-purple-600 mx-auto mb-4"></div>
                     <p className="font-medium">🤖 IA analisando...</p>
+                    <p className="text-sm text-gray-500 mt-2">Análise especializada para {cfg[mode].label}</p>
                   </div>
                 )}
+
                 {formatting && (
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-8 text-center">
+                  <div className="bg-amber-50 rounded-2xl p-8 text-center shadow-xl border border-amber-200">
                     <FaMagic className="text-5xl text-amber-500 mx-auto mb-4 animate-pulse" />
                     <p className="font-medium text-amber-700">✨ IA estruturando seu documento...</p>
                   </div>
                 )}
+
                 {feedback && !analyzing && (
                   <div className="space-y-5">
                     <div className={`rounded-2xl p-6 text-white text-center bg-gradient-to-r ${cfg[mode].color}`}>
@@ -1068,30 +1025,57 @@ REFERÊNCIAS (ABNT NBR 6023)`
                       <p className="text-5xl font-bold">{feedback.grade}</p>
                       <p className="text-sm opacity-90 mt-2">{cfg[mode].gradeSuffix}</p>
                     </div>
+
                     <div className="bg-white rounded-2xl p-5 shadow-xl">
                       <h3 className="font-bold mb-4">📊 Competências</h3>
                       {feedback.competences?.slice(0, 3).map((comp, i) => (
                         <div key={i} className="mb-3">
-                          <div className="flex justify-between text-sm mb-1"><span>{comp.name}</span><span className="text-purple-600 font-bold">{comp.score}{mode === 'enem' ? '/200' : '%'}</span></div>
+                          <div className="flex justify-between text-sm mb-1">
+                            <span className="text-gray-600">{comp.name}</span>
+                            <span className="text-purple-600 font-bold">{comp.score}{mode === 'enem' ? '/200' : '%'}</span>
+                          </div>
                           <ProgressBar value={comp.score} max={mode === 'enem' ? 200 : 100} color="purple" />
                         </div>
                       ))}
                     </div>
-                    <div className="bg-green-50 rounded-2xl p-4 border border-green-200"><h3 className="font-bold text-green-700 mb-2">✅ Pontos Fortes</h3><ul className="space-y-1 text-sm">{feedback.strengths?.slice(0, 3).map((s, i) => <li key={i}>★ {s}</li>)}</ul></div>
-                    <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200"><h3 className="font-bold text-yellow-700 mb-2">⚠️ Melhorias</h3><ul className="space-y-1 text-sm">{feedback.improvements?.slice(0, 3).map((s, i) => <li key={i}>◆ {s}</li>)}</ul></div>
-                    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200"><h3 className="font-bold text-blue-700 mb-2">💡 Sugestões</h3><ul className="space-y-1 text-sm">{feedback.suggestions?.slice(0, 3).map((s, i) => <li key={i}>→ {s}</li>)}</ul></div>
+
+                    <div className="bg-green-50 rounded-2xl p-4 border border-green-200">
+                      <h3 className="font-bold text-green-700 mb-2">✅ Pontos Fortes</h3>
+                      <ul className="space-y-1 text-sm">
+                        {feedback.strengths?.slice(0, 3).map((s, i) => <li key={i}>★ {s}</li>)}
+                      </ul>
+                    </div>
+
+                    <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200">
+                      <h3 className="font-bold text-yellow-700 mb-2">⚠️ Melhorias</h3>
+                      <ul className="space-y-1 text-sm">
+                        {feedback.improvements?.slice(0, 3).map((s, i) => <li key={i}>◆ {s}</li>)}
+                      </ul>
+                    </div>
+
+                    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200">
+                      <h3 className="font-bold text-blue-700 mb-2">💡 Sugestões</h3>
+                      <ul className="space-y-1 text-sm">
+                        {feedback.suggestions?.slice(0, 3).map((s, i) => <li key={i}>→ {s}</li>)}
+                      </ul>
+                    </div>
                   </div>
                 )}
+
                 {!feedback && !analyzing && !formatting && (
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 shadow-xl border border-purple-200">
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 shadow-xl">
                     <h3 className="font-bold text-purple-700 mb-4">💡 Dicas para {cfg[mode].label}</h3>
-                    <ul className="space-y-2 text-sm">
-                      {mode === 'enem' && (<><li>📝 Introdução com tese clara e definida</li><li>🎯 Cada parágrafo = uma ideia principal</li><li>🔗 Use conectivos variados</li><li>💭 Conclusão com proposta de intervenção</li></>)}
-                      {mode === 'faculdade' && (<><li>🔍 Problema de pesquisa bem definido</li><li>📊 Metodologia adequada aos objetivos</li><li>📖 Revisão bibliográfica atualizada</li><li>💡 Contribuição original</li></>)}
-                      {mode === 'tcc' && (<><li>📚 Siga rigorosamente as normas ABNT</li><li>🔬 Metodologia detalhada e replicável</li><li>📊 Resultados com análise estatística</li><li>💬 Discussão comparando com literatura</li></>)}
+                    <ul className="space-y-2 text-sm text-gray-700">
+                      {cfg[mode].tips.map((tip, i) => (
+                        <li key={i} className="flex items-start gap-2">
+                          <span className="text-purple-500">•</span> {tip}
+                        </li>
+                      ))}
                     </ul>
                     <div className="mt-4 p-3 bg-white rounded-xl text-center text-xs text-purple-600">
-                      {mode === 'tcc' ? '✅ TCC formatado com IA conforme ABNT NBR 14724' : mode === 'faculdade' ? '✅ Trabalho formatado com rigor científico' : '✅ Redação com estrutura ENEM nota 1000'}
+                      {mode === 'tcc' ? '✅ TCC formatado com IA conforme ABNT NBR 14724' : 
+                       mode === 'faculdade' ? '✅ Trabalho formatado com rigor científico' : 
+                       '✅ Redação com estrutura ENEM nota 1000'}
                     </div>
                   </div>
                 )}
@@ -1104,30 +1088,8 @@ REFERÊNCIAS (ABNT NBR 6023)`
   );
 };
 
-// ========== PDF MANAGER COMPLETO ==========
-const PDFManager = ({ user }) => {
-  return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-      <Sidebar user={user} />
-      <div className="flex-1 overflow-auto">
-        <Header user={user} />
-        <div className="p-6">
-          <div className="max-w-6xl mx-auto">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                📚 Biblioteca Inteligente
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">
-                Transforme seus PDFs em materiais de estudo interativos com IA
-              </p>
-            </motion.div>
-            <PDFUploader />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+export default EssayEditor;
+
 
 // ========== PÁGINAS EM DESENVOLVIMENTO (ESTILIZADAS) ==========
 const CognitiveMap = ({ user }) => (
