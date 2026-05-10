@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, Link } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
@@ -8,12 +8,26 @@ import {
   FaCheck, FaCopy, FaUndo, FaRobot, FaChartLine, 
   FaLightbulb, FaQuoteRight, FaListOl, FaSave, FaEye, FaDownload 
 } from 'react-icons/fa';
-import { db, doc, getDoc, setDoc, updateDoc } from './config/firebase';
-import { updateStudyStats, getFullUserData } from '../config/firebase';
-import { checkBadges } from '../services/badgeService';
 
-// Firebase
-import { auth, onAuthStateChanged, loginUser, registerUser, logoutUser, resetPassword } from './config/firebase';
+// IMPORTS DO FIREBASE (tudo do mesmo lugar)
+import { 
+  auth, 
+  db,
+  doc,
+  getDoc,
+  setDoc, 
+  updateDoc,
+  onAuthStateChanged,
+  loginUser,
+  registerUser,
+  logoutUser,
+  resetPassword,
+  getFullUserData,
+  updateStudyStats
+} from './config/firebase';
+
+// Outros serviços
+import { checkBadges } from './services/badgeService';
 
 // Componentes
 import Sidebar from './components/Sidebar';
