@@ -18,6 +18,8 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import PDFUploader from './components/PDFUploader';
 import Profile from './pages/Profile';
+import SocialNetwork from './pages/SocialNetwork';
+import StudyGroups from './pages/StudyGroups';
 
 // ========== COMPONENTE DE LOADING ==========
 const LoadingScreen = () => (
@@ -1146,58 +1148,6 @@ const CognitiveMap = ({ user }) => (
             <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-white">
               <p className="text-2xl font-bold mb-2">📊 Em breve</p>
               <p>Gráficos interativos e análises detalhadas do seu progresso</p>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const SocialNetwork = ({ user }) => (
-  <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-    <Sidebar user={user} />
-    <div className="flex-1 overflow-auto">
-      <Header user={user} />
-      <div className="p-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-20">
-            <div className="text-8xl mb-6">👥</div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-              Rede Social Acadêmica
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
-              Conecte-se com outros estudantes e compartilhe conhecimento
-            </p>
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-white">
-              <p className="text-2xl font-bold mb-2">🌐 Em desenvolvimento</p>
-              <p>Feed de posts, grupos de estudo e interações em breve</p>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-const StudyGroups = ({ user }) => (
-  <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
-    <Sidebar user={user} />
-    <div className="flex-1 overflow-auto">
-      <Header user={user} />
-      <div className="p-6">
-        <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mt-20">
-            <div className="text-8xl mb-6">👨‍👩‍👧‍👦</div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-              Grupos de Estudo
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
-              Estude em grupo e aprenda mais rápido
-            </p>
-            <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl p-8 text-white">
-              <p className="text-2xl font-bold mb-2">💬 Em breve</p>
-              <p>Salas de estudo, chat em tempo real e compartilhamento de materiais</p>
             </div>
           </motion.div>
         </div>
