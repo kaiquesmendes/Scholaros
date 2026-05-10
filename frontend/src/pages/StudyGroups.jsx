@@ -15,9 +15,9 @@ import GroupCard from '../components/GroupCard';
 import { 
   createGroup, listenUserGroups, listenAllGroups, joinGroup, leaveGroup, 
   deleteGroup, sendGroupMessage, listenGroupMessages, likeMessage,
-  getGroupMembers, addGroupMember, removeGroupMember, getFullUserData
+  getGroupMembers, addGroupMember, removeGroupMember
 } from '../services/chatService';
-import { getDoc, doc, db } from '../config/firebase';
+import { getFullUserData, getDoc, doc, db } from '../config/firebase';
 import toast from 'react-hot-toast';
 
 // Componente de criação de grupo melhorado
