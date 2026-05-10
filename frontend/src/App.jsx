@@ -213,7 +213,7 @@ const Dashboard = ({ user }) => {
   );
 };
 
-// ========== EDITOR ACADÊMICO COMPLETO - VERSÃO DEFINITIVA ==========
+// ========== EDITOR ACADÊMICO SUPERIOR - COM IA AVANÇADA ==========
 const EssayEditor = ({ user }) => {
   const [essay, setEssay] = useState('');
   const [originalEssay, setOriginalEssay] = useState('');
@@ -225,7 +225,10 @@ const EssayEditor = ({ user }) => {
   const [charCount, setCharCount] = useState(0);
   const [showConfig, setShowConfig] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
-  const [theme, setTheme] = useState('light');
+  const [professorMode, setProfessorMode] = useState(false);
+  const [strictABNT, setStrictABNT] = useState(false);
+  const [humanizerMode, setHumanizerMode] = useState(false);
+  const [expansionMode, setExpansionMode] = useState(false);
   
   // Configuração do TCC
   const [tccConfig, setTccConfig] = useState({
@@ -242,64 +245,53 @@ const EssayEditor = ({ user }) => {
 
   const cfg = {
     enem: { 
-      label: 'ENEM', 
-      icon: '🎯', 
-      bgIcon: '✍️',
-      color: 'from-purple-600 to-purple-700',
-      bgGradient: 'from-purple-50 to-purple-100',
-      borderColor: 'border-purple-200',
-      textColor: 'text-purple-700',
-      minWords: 50, 
-      gradeSuffix: '/1000', 
+      label: 'ENEM', icon: '🎯', bgIcon: '✍️', color: 'from-purple-600 to-purple-700',
+      minWords: 50, gradeSuffix: '/1000', gradeMax: 1000, competenceMax: 200,
       description: 'Correção estilo ENEM - Redação Dissertativa-Argumentativa',
-      formatPrompt: `Formate o texto como uma REDAÇÃO ENEM nota 1000 seguindo:
-- Título chamativo (opcional)
-- Introdução com tese clara (4-5 linhas)
-- 2 parágrafos de desenvolvimento com argumentos e exemplos (6-8 linhas cada)
-- Conclusão com proposta de intervenção completa (agente, ação, meio, efeito)
+      formatPrompt: `Você é um assistente acadêmico especializado em correção e formatação de redações ENEM.
+
+REGRAS:
+- Corrija ortografia, gramática, concordância e pontuação
+- Melhore a coerência e coesão textual
+- Padronize a estrutura: Introdução (com tese), Desenvolvimento (2 parágrafos com argumentos), Conclusão (com proposta de intervenção)
 - Linguagem formal e impessoal
-- Conectivos adequados (portanto, ademais, contudo, etc)
-- Máximo 30 linhas no total`
+- Adicione conectivos adequados
+- Mantenha o tema original
+
+TEXTO: ${essay}`
     },
     faculdade: { 
-      label: 'FACULDADE', 
-      icon: '🎓', 
-      bgIcon: '📚',
-      color: 'from-blue-600 to-blue-700',
-      bgGradient: 'from-blue-50 to-blue-100',
-      borderColor: 'border-blue-200',
-      textColor: 'text-blue-700',
-      minWords: 200, 
-      gradeSuffix: '%', 
+      label: 'FACULDADE', icon: '🎓', bgIcon: '📚', color: 'from-blue-600 to-blue-700',
+      minWords: 200, gradeSuffix: '%', gradeMax: 100, competenceMax: 100,
       description: 'Formato ABNT para Artigos e Trabalhos Acadêmicos',
-      formatPrompt: `Formate o texto como um ARTIGO CIENTÍFICO seguindo normas ABNT:
-- Título em negrito, centralizado
-- Nome do autor abaixo
-- Resumo em português (até 250 palavras)
-- Palavras-chave (3 a 5)
-- Abstract em inglês
-- Keywords
-- 1 INTRODUÇÃO (contexto, problema, objetivos)
-- 2 REFERENCIAL TEÓRICO
-- 3 METODOLOGIA
-- 4 RESULTADOS E DISCUSSÃO
-- 5 CONSIDERAÇÕES FINAIS
-- REFERÊNCIAS no formato ABNT NBR 6023
-- Citações diretas com aspas e página
-- Fonte Times New Roman 12, espaçamento 1,5`
+      formatPrompt: `Você é um assistente acadêmico especializado em formatação ABNT para artigos científicos.
+
+REGRAS:
+- Corrija ortografia, gramática e concordância
+- Estruture com: Título, Autor, Resumo, Palavras-chave, Abstract, Keywords
+- Organize em: Introdução, Metodologia, Resultados, Discussão, Conclusão
+- Formate referências conforme ABNT NBR 6023
+- Adicione citações diretas com aspas
+- Aplique linguagem científica
+
+TEXTO: ${essay}`
     },
     tcc: { 
-      label: 'TCC', 
-      icon: '🏆', 
-      bgIcon: '📖',
-      color: 'from-green-600 to-green-700',
-      bgGradient: 'from-green-50 to-green-100',
-      borderColor: 'border-green-200',
-      textColor: 'text-green-700',
-      minWords: 500, 
-      gradeSuffix: '%', 
+      label: 'TCC', icon: '🏆', bgIcon: '📖', color: 'from-green-600 to-green-700',
+      minWords: 500, gradeSuffix: '%', gradeMax: 100, competenceMax: 100,
       description: 'Formatação ABNT completa para Trabalho de Conclusão de Curso',
-      formatPrompt: `Formate o texto como um TCC completo seguindo rigorosamente as normas ABNT (NBR 14724, 10520, 6023, 6024, 6027, 6028):
+      formatPrompt: `Você é um assistente acadêmico avançado especializado em formatação de TCC seguindo rigorosamente as normas ABNT (NBR 14724, 10520, 6023, 6024, 6027, 6028).
+
+DADOS DO TRABALHO:
+Título: ${tccConfig.titulo || '[TÍTULO DO TCC]'}
+Subtítulo: ${tccConfig.subtitulo || ''}
+Autor: ${tccConfig.autor || '[NOME DO AUTOR]'}
+Orientador: ${tccConfig.orientador || '[NOME DO ORIENTADOR]'}
+Coorientador: ${tccConfig.coorientador || ''}
+Instituição: ${tccConfig.instituicao || '[NOME DA INSTITUIÇÃO]'}
+Curso: ${tccConfig.curso || '[NOME DO CURSO]'}
+Cidade: ${tccConfig.cidade || '[CIDADE]'}
+Ano: ${tccConfig.ano}
 
 ESTRUTURA OBRIGATÓRIA:
 
@@ -311,45 +303,12 @@ PRÉ-TEXTUAIS:
 - SUMÁRIO (com numeração progressiva)
 
 TEXTUAIS:
-1 INTRODUÇÃO
-   1.1 Contextualização
-   1.2 Problema de pesquisa
-   1.3 Questão de pesquisa
-   1.4 Objetivos (geral e específicos)
-   1.5 Justificativa
-   1.6 Estrutura do trabalho
-
-2 REFERENCIAL TEÓRICO
-   2.1 Fundamentação conceitual
-   2.2 Revisão sistemática da literatura
-   2.3 Estado da arte
-   2.4 Lacunas identificadas
-
-3 METODOLOGIA
-   3.1 Delineamento da pesquisa
-   3.2 Classificação da pesquisa
-   3.3 Universo e amostra
-   3.4 Instrumentos de coleta
-   3.5 Procedimentos de coleta
-   3.6 Análise dos dados
-
-4 RESULTADOS
-   4.1 Caracterização da amostra
-   4.2 Análise descritiva
-   4.3 Análise inferencial
-   4.4 Testes estatísticos
-
-5 DISCUSSÃO
-   5.1 Interpretação dos resultados
-   5.2 Comparação com estudos anteriores
-   5.3 Implicações teóricas e práticas
-   5.4 Limitações do estudo
-
-6 CONCLUSÃO
-   6.1 Síntese dos achados
-   6.2 Contribuições do estudo
-   6.3 Limitações da pesquisa
-   6.4 Recomendações para trabalhos futuros
+1 INTRODUÇÃO (contextualização, problema, questão, objetivos, justificativa, estrutura)
+2 REFERENCIAL TEÓRICO (fundamentação, revisão sistemática, estado da arte, lacunas)
+3 METODOLOGIA (delineamento, classificação, universo/amostra, instrumentos, procedimentos, análise)
+4 RESULTADOS (caracterização, análise descritiva, análise inferencial, testes estatísticos)
+5 DISCUSSÃO (interpretação dos resultados, comparação com literatura, implicações, limitações)
+6 CONCLUSÃO (síntese dos achados, contribuições, limitações, recomendações)
 
 PÓS-TEXTUAIS:
 - REFERÊNCIAS (ABNT NBR 6023 - livros, artigos, sites, teses)
@@ -358,31 +317,30 @@ PÓS-TEXTUAIS:
 
 FORMATAÇÃO:
 - Fonte: Times New Roman ou Arial, tamanho 12
-- Títulos de seção: tamanho 12, negrito, caixa alta ou baixa conforme NBR 6024
-- Espaçamento entre linhas: 1,5
-- Parágrafos: recuo de 1,25 cm (primeira linha)
-- Margens: superior e esquerda 3cm, inferior e direita 2cm
+- Títulos: tamanho 12, negrito
+- Espaçamento: 1,5 entre linhas
+- Parágrafos: recuo de 1,25 cm
+- Margens: superior/esquerda 3cm, inferior/direita 2cm
 - Alinhamento: justificado
-- Citações diretas curtas (até 3 linhas): entre aspas, incorporadas ao parágrafo
-- Citações diretas longas (+3 linhas): bloco recuado 4cm, fonte 10, espaço simples
-- Notas de rodapé: quando necessário
-- Numeração de páginas: a partir da introdução
+- Citações curtas (até 3 linhas): entre aspas
+- Citações longas (+3 linhas): bloco recuado 4cm, fonte 10
 
-Dados do Trabalho:
-Título: ${tccConfig.titulo || '[TÍTULO DO TCC]'}
-Subtítulo: ${tccConfig.subtitulo || ''}
-Autor: ${tccConfig.autor || '[NOME DO AUTOR]'}
-Orientador: ${tccConfig.orientador || '[NOME DO ORIENTADOR]'}
-Coorientador: ${tccConfig.coorientador || ''}
-Instituição: ${tccConfig.instituicao || '[NOME DA INSTITUIÇÃO]'}
-Curso: ${tccConfig.curso || '[NOME DO CURSO]'}
-Cidade: ${tccConfig.cidade || '[CIDADE]'}
-Ano: ${tccConfig.ano}
-
-TEXTO ORIGINAL A SER ESTRUTURADO:
+TEXTO ORIGINAL A SER ESTRUTURADO E MELHORADO:
 ${essay}
 
-IMPORTANTE: Mantenha todo o conteúdo original, apenas reestruture e formate conforme as normas ABNT. Adicione os elementos que faltarem.`
+REGRAS ADICIONAIS:
+1. Preserve o tema original e todas as informações relevantes
+2. Não invente dados absurdos
+3. Mantenha a coerência e o sentido do texto
+4. Melhore a profundidade acadêmica onde necessário
+5. Expanda ideias curtas para torná-las mais substanciais
+6. Adicione conectivos formais e variados
+7. Torne o texto mais humano e natural (evite padrões robóticos)
+8. Se detectar problemas acadêmicos (introdução curta, falta de referencial, conclusão superficial), aponte no início do texto como [ALERTA]
+9. Aplique normas ABNT rigorosamente se strictABNT estiver ativado
+10. Humanize o texto se humanizerMode estiver ativado
+
+IMPORTANTE: Retorne APENAS o texto formatado, sem comentários adicionais.`
     },
   };
 
@@ -391,115 +349,6 @@ IMPORTANTE: Mantenha todo o conteúdo original, apenas reestruture e formate con
     setWordCount(words.length);
     setCharCount(essay.length);
   }, [essay]);
-
-  const templates = {
-    enem: `🎯 REDAÇÃO ENEM - MODELO NOTA 1000
-
-[Introdução - 4 a 5 linhas]
-A discussão sobre [TEMA] é de extrema relevância no contexto brasileiro contemporâneo. Historicamente, observa-se que [contextualização histórica]. Diante desse cenário, é fundamental analisar [problema central], bem como propor soluções efetivas para [questão abordada].
-
-[Desenvolvimento 1 - 6 a 8 linhas]
-Em primeiro lugar, é importante destacar que [argumento 1]. Segundo [autor], "[citação relevante]" (ANO, p. X). Isso evidencia que [conexão com o tema]. Ademais, dados do [fonte confiável] apontam que [estatística ou dado concreto], o que reforça a necessidade de [ação específica].
-
-[Desenvolvimento 2 - 6 a 8 linhas]
-Além disso, outro aspecto fundamental reside em [argumento 2]. Conforme [filósofo/teórico], "[citação pertinente]" (ANO, p. Y). Dessa forma, percebe-se que [desdobramento do argumento]. Nesse sentido, [exemplo prático ou estudo de caso] demonstra como [relação com a tese].
-
-[Conclusão - 5 a 6 linhas]
-Portanto, faz-se necessária uma intervenção estatal e social para mitigar [problema central]. O governo, em parceria com [agentes envolvidos], deve [ação específica] por meio de [meio de implementação]. Espera-se que, com tais medidas, [resultado esperado], contribuindo para uma sociedade mais justa e igualitária.`,
-
-    faculdade: `🎓 TRABALHO ACADÊMICO - ESTRUTURA CIENTÍFICA
-
-TÍTULO DO TRABALHO (centralizado, negrito, fonte 12)
-
-Nome do Autor
-Instituição
-
-RESUMO
-[Escreva um resumo de 150-250 palavras apresentando o tema, objetivos, metodologia, resultados e conclusões do trabalho.]
-
-Palavras-chave: palavra1; palavra2; palavra3.
-
-ABSTRACT
-[Write an abstract in English with the same structure as the Portuguese version.]
-
-Keywords: keyword1; keyword2; keyword3.
-
-1 INTRODUÇÃO
-1.1 Contextualização do tema
-1.2 Problema de pesquisa
-1.3 Objetivos (geral e específicos)
-1.4 Justificativa
-
-2 REFERENCIAL TEÓRICO
-2.1 [Conceito fundamental 1]
-2.2 [Conceito fundamental 2]
-2.3 [Conceito fundamental 3]
-
-3 METODOLOGIA
-3.1 Tipo de pesquisa
-3.2 Coleta de dados
-3.3 Análise dos dados
-
-4 RESULTADOS E DISCUSSÃO
-4.1 Apresentação dos resultados
-4.2 Análise e interpretação
-4.3 Comparação com a literatura
-
-5 CONSIDERAÇÕES FINAIS
-5.1 Síntese dos achados
-5.2 Limitações do estudo
-5.3 Sugestões para pesquisas futuras
-
-REFERÊNCIAS
-SOBRENOME, Nome. Título da obra. Edição. Local: Editora, Ano.`,
-
-    tcc: `🏆 TRABALHO DE CONCLUSÃO DE CURSO - MODELO ABNT
-
-[INSIRA SEUS DADOS NOS CAMPOS ABAIXO E CLIQUE EM "FORMATAÇÃO INTELIGENTE"]
-
-Dados necessários:
-• Título do TCC
-• Nome do autor
-• Nome do orientador
-• Instituição
-• Curso
-• Cidade e ano
-
-Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Formatação Inteligente ABNT" para gerar o TCC completo formatado.`
-  };
-
-  const insertTemplate = () => {
-    if (essay.trim() && !window.confirm("Inserir template substituirá o conteúdo atual. Continuar?")) return;
-    setEssay(templates[mode]);
-    setOriginalEssay('');
-    setFeedback(null);
-    toast.success(`📋 Template ${cfg[mode].label} inserido!`);
-  };
-
-  const clearEssay = () => {
-    if (essay.trim() && !window.confirm("Limpar todo o texto?")) return;
-    setEssay('');
-    setOriginalEssay('');
-    setFeedback(null);
-    toast.success('✨ Texto limpo!');
-  };
-
-  const copyToClipboard = async () => {
-    await navigator.clipboard.writeText(essay);
-    setShowCopied(true);
-    toast.success('📋 Copiado para área de transferência!');
-    setTimeout(() => setShowCopied(false), 2000);
-  };
-
-  const undoFormat = () => {
-    if (originalEssay) {
-      setEssay(originalEssay);
-      setOriginalEssay('');
-      toast.success('↩️ Formatação desfeita!');
-    } else {
-      toast.error('❌ Nada para desfazer');
-    }
-  };
 
   const formatWithAI = async () => {
     if (!essay.trim()) {
@@ -515,51 +364,39 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
 
     setFormatting(true);
     setOriginalEssay(essay);
-    toast.loading(`🤖 IA formatando seu ${cfg[mode].label}...`, { id: 'format' });
+    
+    let modeText = '';
+    if (professorMode) modeText += ' Ativar MODO PROFESSOR - gere comentários técnicos, críticas construtivas, análise acadêmica detalhada e notas simuladas.';
+    if (strictABNT) modeText += ' Ativar MODO STRICT ABNT - aplique rigorosamente todas as normas ABNT (NBR 14724, 6023, 10520, 6028). Valide títulos, referências, citações e formatação.';
+    if (humanizerMode) modeText += ' Ativar MODO HUMANIZADOR - reduza aparência de IA, aumente naturalidade, varie conectivos, evite padrões previsíveis.';
+    if (expansionMode) modeText += ' Ativar MODO EXPANSÃO - expanda conteúdos muito curtos mantendo coerência e formalidade.';
+    
+    toast.loading(`🤖 IA formatando seu ${cfg[mode].label}${modeText}...`, { id: 'format' });
 
     try {
       const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
         content: essay,
         mode: mode,
         tccConfig: tccConfig,
-        prompt: cfg[mode].formatPrompt
+        professorMode: professorMode,
+        strictABNT: strictABNT,
+        humanizerMode: humanizerMode,
+        expansionMode: expansionMode,
+        prompt: cfg[mode].formatPrompt + modeText
       });
 
-      setEssay(response.data.formattedText || response.data.content);
+      let formattedText = response.data.formattedText || response.data.content;
+      
+      if (professorMode && response.data.teacherNotes) {
+        formattedText = '📋 NOTAS DO PROFESSOR:\n' + response.data.teacherNotes + '\n\n---\n\n' + formattedText;
+      }
+      
+      setEssay(formattedText);
       toast.success(`✅ ${cfg[mode].label} formatado com sucesso!`, { id: 'format' });
     } catch (error) {
       console.error('Erro:', error);
-      
-      let formatted = '';
-      if (mode === 'tcc') {
-        formatted = `UNIVERSIDADE ${tccConfig.instituicao?.toUpperCase() || 'INSTITUIÇÃO'}\n`;
-        formatted += `${tccConfig.curso?.toUpperCase() || 'CURSO'}\n\n`;
-        formatted += '='.repeat(60) + '\n\n';
-        formatted += `${tccConfig.titulo?.toUpperCase() || 'TÍTULO DO TCC'}\n\n`;
-        formatted += `${tccConfig.autor?.toUpperCase() || 'AUTOR'}\n\n`;
-        formatted += `${tccConfig.orientador ? `Orientador: ${tccConfig.orientador}\n\n` : ''}`;
-        formatted += `${tccConfig.cidade || 'CIDADE'}, ${tccConfig.ano}\n`;
-        formatted += '='.repeat(60) + '\n\n';
-        formatted += 'RESUMO\n\n';
-        formatted += essay.substring(0, 500) + '...\n\n';
-        formatted += 'Palavras-chave: trabalho acadêmico, pesquisa.\n\n';
-        formatted += 'ABSTRACT\n\n';
-        formatted += 'Keywords: academic work, research.\n\n';
-        formatted += 'SUMÁRIO\n\n';
-        formatted += '1 INTRODUÇÃO ..................................... 3\n';
-        formatted += '2 DESENVOLVIMENTO ............................... 4\n';
-        formatted += '3 CONCLUSÃO ..................................... 5\n';
-        formatted += 'REFERÊNCIAS .................................... 6\n\n';
-        formatted += '1 INTRODUÇÃO\n\n';
-        formatted += essay + '\n\n';
-        formatted += 'REFERÊNCIAS\n\n';
-        formatted += 'SOBRENOME, Nome. Título da obra. Edição. Local: Editora, Ano.\n';
-      } else {
-        formatted = essay;
-      }
-      
-      setEssay(formatted);
       toast.warning('⚠️ IA indisponível. Usando formatação local básica.', { id: 'format' });
+      setEssay(essay);
     } finally {
       setFormatting(false);
     }
@@ -579,15 +416,21 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
     toast.loading(`🤖 IA analisando seu ${cfg[mode].label}...`, { id: 'analyzing' });
 
     try {
-      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
+      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/analyze', {
         content: essay,
         mode: mode
       });
       setFeedback(response.data);
-      toast.success(`✅ Nota: ${response.data.grade}${cfg[mode].gradeSuffix}`, { id: 'analyzing' });
+      
+      let notaDisplay = '';
+      if (mode === 'enem') notaDisplay = `${response.data.grade}/1000`;
+      else if (mode === 'faculdade') notaDisplay = `${response.data.grade}%`;
+      else notaDisplay = `${response.data.grade}%`;
+      
+      toast.success(`✅ Nota: ${notaDisplay}`, { id: 'analyzing' });
     } catch (error) {
       console.error('Erro:', error);
-      toast.error('❌ Erro na análise. Usando simulação.', { id: 'analyzing' });
+      toast.error('❌ Erro na análise.', { id: 'analyzing' });
       
       const mockFeedback = {
         grade: mode === 'enem' ? 780 : mode === 'faculdade' ? 82 : 85,
@@ -616,9 +459,120 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
     }
   };
 
+  const insertTemplate = () => {
+    const templates = {
+      enem: `🎯 REDAÇÃO ENEM - MODELO NOTA 1000
+
+[INTRODUÇÃO - 4 a 5 linhas]
+A discussão sobre [TEMA] é de extrema relevância no contexto brasileiro contemporâneo. Historicamente, observa-se que [contextualização histórica]. Diante desse cenário, é fundamental analisar [problema central], bem como propor soluções efetivas para [questão abordada].
+
+[DESENVOLVIMENTO 1 - 6 a 8 linhas]
+Em primeiro lugar, é importante destacar que [argumento 1]. Segundo [autor], "[citação relevante]" (ANO, p. X). Isso evidencia que [conexão com o tema]. Ademais, dados do [fonte confiável] apontam que [estatística], o que reforça a necessidade de [ação específica].
+
+[DESENVOLVIMENTO 2 - 6 a 8 linhas]
+Além disso, outro aspecto fundamental reside em [argumento 2]. Conforme [filósofo/teórico], "[citação pertinente]" (ANO, p. Y). Dessa forma, percebe-se que [desdobramento do argumento].
+
+[CONCLUSÃO - 5 a 6 linhas]
+Portanto, faz-se necessária uma intervenção estatal e social para mitigar [problema central]. O governo, em parceria com [agentes envolvidos], deve [ação específica] por meio de [meio de implementação]. Espera-se que, com tais medidas, [resultado esperado], contribuindo para uma sociedade mais justa e igualitária.`,
+      faculdade: `🎓 MODELO DE ARTIGO CIENTÍFICO
+
+TÍTULO DO ARTIGO (centralizado, negrito)
+
+Nome do Autor
+Instituição
+
+RESUMO
+[Escreva um resumo de 150-250 palavras]
+
+Palavras-chave: palavra1; palavra2; palavra3.
+
+ABSTRACT
+[Write an abstract in English]
+
+Keywords: keyword1; keyword2; keyword3.
+
+1 INTRODUÇÃO
+1.1 Contextualização
+1.2 Problema de pesquisa
+1.3 Objetivos
+
+2 METODOLOGIA
+2.1 Tipo de pesquisa
+2.2 Coleta de dados
+
+3 RESULTADOS E DISCUSSÃO
+
+4 CONCLUSÃO
+
+REFERÊNCIAS`,
+      tcc: `🏆 ESTRUTURA DO TCC - FORMATO ABNT
+
+1. CAPA (instituição, curso, título, autor, local, ano)
+2. FOLHA DE ROSTO (com orientador)
+3. RESUMO (português, 250-500 palavras, 3-5 palavras-chave)
+4. ABSTRACT (inglês, 250-500 palavras, 3-5 keywords)
+5. SUMÁRIO
+
+1 INTRODUÇÃO
+1.1 Contextualização
+1.2 Problema de pesquisa
+1.3 Objetivos (geral e específicos)
+1.4 Justificativa
+
+2 REFERENCIAL TEÓRICO
+2.1 Fundamentação conceitual
+2.2 Revisão da literatura
+
+3 METODOLOGIA
+3.1 Delineamento
+3.2 Participantes
+3.3 Instrumentos
+3.4 Procedimentos
+
+4 RESULTADOS
+4.1 Análise descritiva
+4.2 Análise inferencial
+
+5 DISCUSSÃO
+
+6 CONCLUSÃO
+
+REFERÊNCIAS (ABNT NBR 6023)`
+    };
+    
+    if (essay.trim() && !window.confirm("Inserir template substituirá o conteúdo atual. Continuar?")) return;
+    setEssay(templates[mode]);
+    toast.success(`📋 Template ${cfg[mode].label} inserido!`);
+  };
+
+  const clearEssay = () => {
+    if (essay.trim() && !window.confirm("Limpar todo o texto?")) return;
+    setEssay('');
+    setOriginalEssay('');
+    setFeedback(null);
+    toast.success('✨ Texto limpo!');
+  };
+
+  const copyToClipboard = async () => {
+    await navigator.clipboard.writeText(essay);
+    setShowCopied(true);
+    toast.success('📋 Copiado!');
+    setTimeout(() => setShowCopied(false), 2000);
+  };
+
+  const undoFormat = () => {
+    if (originalEssay) {
+      setEssay(originalEssay);
+      setOriginalEssay('');
+      toast.success('↩️ Desfeito!');
+    } else {
+      toast.error('❌ Nada para desfazer');
+    }
+  };
+
   const exportToPDF = () => {
     if (!essay.trim()) {
-      toast.error("📄 Sem conteúdo para exportar");
+      toast.error("📄 Sem conteúdo");
       return;
     }
     const win = window.open("", "_blank");
@@ -627,40 +581,29 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
 <style>
   body { font-family: 'Times New Roman', Times, serif; line-height: 1.5; margin: 2.5cm; font-size: 12pt; }
   .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 15px; }
-  .title { font-size: 18pt; font-weight: bold; color: #2d2d2d; }
-  .subtitle { font-size: 14pt; margin-top: 5px; color: #555; }
+  .title { font-size: 18pt; font-weight: bold; }
   .meta { font-size: 10pt; color: #666; margin-top: 8px; }
-  pre { white-space: pre-wrap; font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; }
-  .footer { text-align: center; font-size: 9pt; color: #888; margin-top: 40px; padding-top: 12px; border-top: 1px solid #ccc; }
-  h1, h2, h3 { color: #2d2d2d; margin-top: 20px; }
+  pre { white-space: pre-wrap; font-family: 'Times New Roman', Times, serif; font-size: 12pt; }
 </style></head>
 <body>
-<div class="header">
-  <div class="title">ScholarOS — ${cfg[mode].label}</div>
-  <div class="subtitle">Plataforma Acadêmica Inteligente</div>
-  <div class="meta">${wordCount} palavras | ${charCount} caracteres | ${new Date().toLocaleDateString('pt-BR')}</div>
-</div>
+<div class="header"><div class="title">ScholarOS — ${cfg[mode].label}</div><div class="meta">${wordCount} palavras | ${charCount} caracteres</div></div>
 <pre>${essay.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
-<div class="footer">Documento gerado pelo ScholarOS - Sistema Operacional Acadêmico</div>
+<div class="footer" style="text-align:center; margin-top:40px; font-size:9pt; color:#888;">Gerado por ScholarOS</div>
 </body></html>`);
     win.document.close();
     win.print();
-    toast.success("📄 PDF enviado para impressão!");
+    toast.success("📄 PDF enviado!");
   };
 
   const ProgressBar = ({ value, max, color }) => {
     const pct = Math.min(100, (value / max) * 100);
-    return (
-      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-500 bg-${color}-500`} style={{ width: `${pct}%` }} />
-      </div>
-    );
+    return <div className="h-2 bg-gray-200 rounded-full overflow-hidden"><div className={`h-full rounded-full transition-all duration-500 bg-${color}-500`} style={{ width: `${pct}%` }} /></div>;
   };
 
   return (
-    <div className={`flex h-screen ${theme === 'dark' ? 'dark' : ''}`}>
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
       <Sidebar user={user} />
-      <div className="flex-1 overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <div className="flex-1 overflow-auto">
         <Header user={user} />
         <div className="p-6">
           <div className="max-w-7xl mx-auto">
@@ -688,7 +631,7 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
                   className={`relative p-6 rounded-2xl transition-all text-left overflow-hidden ${
                     mode === key 
                       ? `bg-gradient-to-r ${m.color} text-white shadow-xl scale-102`
-                      : `bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:shadow-lg border-2 ${m.borderColor}`
+                      : `bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:shadow-lg border-2 border-gray-200`
                   }`}
                 >
                   <div className="absolute top-2 right-2 text-5xl opacity-10">{m.bgIcon}</div>
@@ -696,9 +639,7 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
                     <div className="text-4xl mb-3">{m.icon}</div>
                     <div className="font-bold text-xl">{m.label}</div>
                     <div className="text-sm opacity-80 mt-2">{m.description.split(' - ')[0]}</div>
-                    <div className="text-xs opacity-70 mt-3">
-                      📝 Mínimo {m.minWords} palavras
-                    </div>
+                    <div className="text-xs opacity-70 mt-3">📝 Mínimo {m.minWords} palavras</div>
                   </div>
                 </motion.button>
               ))}
@@ -707,189 +648,111 @@ Após preencher os dados no botão "⚙️ Configurar TCC", clique em "✨ Forma
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3 mb-6">
               {mode === 'tcc' && (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  onClick={() => setShowConfig(!showConfig)}
-                  className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-semibold shadow-md flex items-center gap-2"
-                >
-                  <FaBook /> {showConfig ? 'Ocultar Configurações' : '⚙️ Configurar TCC'}
-                </motion.button>
+                <button onClick={() => setShowConfig(!showConfig)} className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-xl font-semibold flex items-center gap-2">
+                  <FaBook /> {showConfig ? 'Ocultar' : '⚙️ Configurar TCC'}
+                </button>
               )}
-              <motion.button whileHover={{ scale: 1.02 }} onClick={insertTemplate} className="px-5 py-2.5 bg-purple-100 text-purple-700 rounded-xl font-semibold flex items-center gap-2">
-                <FaFileAlt /> 📋 Template
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} onClick={formatWithAI} disabled={formatting} className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold shadow-md flex items-center gap-2">
-                {formatting ? <FaSpinner className="animate-spin" /> : <FaMagic />} {formatting ? 'Formatando...' : '✨ Formatação Inteligente'}
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} onClick={exportToPDF} className="px-5 py-2.5 bg-red-100 text-red-700 rounded-xl font-semibold flex items-center gap-2">
-                <FaFilePdf /> 📄 Exportar PDF
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} onClick={copyToClipboard} className="px-5 py-2.5 bg-blue-100 text-blue-700 rounded-xl font-semibold flex items-center gap-2">
-                {showCopied ? <FaCheck /> : <FaCopy />} {showCopied ? 'Copiado!' : 'Copiar'}
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} onClick={undoFormat} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold flex items-center gap-2">
-                <FaUndo /> ↩️ Desfazer
-              </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} onClick={clearEssay} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold">
-                🗑️ Limpar
-              </motion.button>
+              <button onClick={() => setProfessorMode(!professorMode)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${professorMode ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700'}`}>
+                <FaChartLine /> 👨‍🏫 Modo Professor
+              </button>
+              <button onClick={() => setStrictABNT(!strictABNT)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${strictABNT ? 'bg-green-600 text-white' : 'bg-green-100 text-green-700'}`}>
+                <FaListOl /> 📏 Strict ABNT
+              </button>
+              <button onClick={() => setHumanizerMode(!humanizerMode)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${humanizerMode ? 'bg-blue-600 text-white' : 'bg-blue-100 text-blue-700'}`}>
+                <FaLightbulb /> 💬 Humanizar
+              </button>
+              <button onClick={() => setExpansionMode(!expansionMode)} className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${expansionMode ? 'bg-yellow-600 text-white' : 'bg-yellow-100 text-yellow-700'}`}>
+                <FaQuoteRight /> 📖 Expandir
+              </button>
+              <button onClick={insertTemplate} className="px-5 py-2.5 bg-purple-100 text-purple-700 rounded-xl font-semibold flex items-center gap-2"><FaFileAlt /> 📋 Template</button>
+              <button onClick={formatWithAI} disabled={formatting} className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold flex items-center gap-2">
+                {formatting ? <FaSpinner className="animate-spin" /> : <FaMagic />} {formatting ? 'Formatando...' : '✨ Formatação IA'}
+              </button>
+              <button onClick={exportToPDF} className="px-5 py-2.5 bg-red-100 text-red-700 rounded-xl font-semibold flex items-center gap-2"><FaFilePdf /> 📄 PDF</button>
+              <button onClick={copyToClipboard} className="px-5 py-2.5 bg-blue-100 text-blue-700 rounded-xl font-semibold flex items-center gap-2">{showCopied ? <FaCheck /> : <FaCopy />} Copiar</button>
+              <button onClick={undoFormat} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl font-semibold flex items-center gap-2"><FaUndo /> Desfazer</button>
+              <button onClick={clearEssay} className="px-5 py-2.5 bg-gray-200 text-gray-700 rounded-xl">🗑️ Limpar</button>
             </div>
 
             {/* TCC Config Panel */}
             {showConfig && mode === 'tcc' && (
-              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl mb-6 border-2 border-green-200 dark:border-green-800">
-                <div className="flex justify-between items-center mb-5">
-                  <h3 className="text-xl font-bold text-green-600 flex items-center gap-2">
-                    <FaBook /> Configuração do TCC
-                  </h3>
-                  <button onClick={() => setShowConfig(false)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
-                </div>
+              <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-xl mb-6 border-2 border-green-200">
+                <div className="flex justify-between items-center mb-5"><h3 className="text-xl font-bold text-green-600">📋 Configuração do TCC</h3><button onClick={() => setShowConfig(false)} className="text-gray-400 text-xl">✕</button></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" placeholder="Título do TCC" value={tccConfig.titulo} onChange={(e) => setTccConfig({...tccConfig, titulo: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Subtítulo (opcional)" value={tccConfig.subtitulo} onChange={(e) => setTccConfig({...tccConfig, subtitulo: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Nome do Autor" value={tccConfig.autor} onChange={(e) => setTccConfig({...tccConfig, autor: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Orientador" value={tccConfig.orientador} onChange={(e) => setTccConfig({...tccConfig, orientador: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Coorientador (opcional)" value={tccConfig.coorientador} onChange={(e) => setTccConfig({...tccConfig, coorientador: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Instituição" value={tccConfig.instituicao} onChange={(e) => setTccConfig({...tccConfig, instituicao: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Curso" value={tccConfig.curso} onChange={(e) => setTccConfig({...tccConfig, curso: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="text" placeholder="Cidade" value={tccConfig.cidade} onChange={(e) => setTccConfig({...tccConfig, cidade: e.target.value})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                  <input type="number" placeholder="Ano" value={tccConfig.ano} onChange={(e) => setTccConfig({...tccConfig, ano: parseInt(e.target.value)})} className="px-4 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700" />
-                </div>
-                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <p className="text-sm text-green-700 dark:text-green-300">📌 Após preencher os dados, clique em "✨ Formatação Inteligente" para gerar o TCC completo nas normas ABNT!</p>
+                  <input type="text" placeholder="Título" value={tccConfig.titulo} onChange={(e) => setTccConfig({...tccConfig, titulo: e.target.value})} className="px-4 py-2 border rounded-lg dark:bg-gray-700" />
+                  <input type="text" placeholder="Subtítulo" value={tccConfig.subtitulo} onChange={(e) => setTccConfig({...tccConfig, subtitulo: e.target.value})} className="px-4 py-2 border rounded-lg" />
+                  <input type="text" placeholder="Autor" value={tccConfig.autor} onChange={(e) => setTccConfig({...tccConfig, autor: e.target.value})} className="px-4 py-2 border rounded-lg" />
+                  <input type="text" placeholder="Orientador" value={tccConfig.orientador} onChange={(e) => setTccConfig({...tccConfig, orientador: e.target.value})} className="px-4 py-2 border rounded-lg" />
+                  <input type="text" placeholder="Instituição" value={tccConfig.instituicao} onChange={(e) => setTccConfig({...tccConfig, instituicao: e.target.value})} className="px-4 py-2 border rounded-lg" />
+                  <input type="text" placeholder="Curso" value={tccConfig.curso} onChange={(e) => setTccConfig({...tccConfig, curso: e.target.value})} className="px-4 py-2 border rounded-lg" />
                 </div>
               </motion.div>
             )}
 
             {/* Main Editor Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Editor Area */}
               <div className="lg:col-span-2">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-200 dark:border-gray-700">
-                  <div className="p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-900 dark:to-gray-900">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+                  <div className="p-4 border-b bg-gradient-to-r from-purple-50 to-pink-50">
                     <div className="flex justify-between items-center flex-wrap gap-3">
                       <div className="flex gap-3">
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full shadow-sm">
-                          <span>📝</span>
-                          <span className="font-bold">{wordCount}</span>
-                          <span className="text-xs text-gray-500">palavras</span>
-                        </div>
-                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-800 rounded-full shadow-sm">
-                          <span>✏️</span>
-                          <span className="font-bold">{charCount}</span>
-                          <span className="text-xs text-gray-500">caracteres</span>
-                        </div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm"><span>📝</span><strong>{wordCount}</strong><span className="text-xs">palavras</span></div>
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-full shadow-sm"><span>✏️</span><strong>{charCount}</strong><span className="text-xs">caracteres</span></div>
                       </div>
-                      <button
-                        onClick={analyzeEssay}
-                        disabled={analyzing}
-                        className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold shadow-md flex items-center gap-2 hover:opacity-90 transition-all disabled:opacity-50"
-                      >
-                        {analyzing ? <FaSpinner className="animate-spin" /> : <FaRobot />}
-                        {analyzing ? 'Analisando...' : '🤖 Analisar com IA'}
+                      <button onClick={analyzeEssay} disabled={analyzing} className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold shadow-md flex items-center gap-2">
+                        {analyzing ? <FaSpinner className="animate-spin" /> : <FaRobot />} {analyzing ? 'Analisando...' : '🤖 Analisar com IA'}
                       </button>
                     </div>
                   </div>
-                  <textarea
-                    value={essay}
-                    onChange={(e) => setEssay(e.target.value)}
-                    placeholder={`✍️ Escreva ou cole seu ${cfg[mode].label} aqui...
-
-💡 Dica: Clique em "✨ Formatação Inteligente" para estruturar automaticamente seu texto nas normas corretas!`}
-                    className="w-full h-[550px] p-6 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none resize-none font-serif text-base leading-relaxed"
-                  />
+                  <textarea value={essay} onChange={(e) => setEssay(e.target.value)} placeholder={`✍️ Escreva ou cole seu ${cfg[mode].label} aqui...`} className="w-full h-[550px] p-6 bg-white dark:bg-gray-800 text-gray-800 dark:text-white focus:outline-none resize-none font-serif text-base leading-relaxed" />
                 </div>
               </div>
 
               {/* Feedback Panel */}
               <div className="space-y-5">
                 {analyzing && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 text-center shadow-xl">
+                  <div className="bg-white rounded-2xl p-8 text-center shadow-xl">
                     <div className="animate-spin rounded-full h-14 w-14 border-b-4 border-purple-600 mx-auto mb-4"></div>
-                    <p className="font-medium text-gray-700 dark:text-gray-300">🤖 IA analisando seu trabalho...</p>
-                    <p className="text-sm text-gray-500 mt-2">Análise especializada para {cfg[mode].label}</p>
+                    <p className="font-medium">🤖 IA analisando...</p>
                   </div>
                 )}
-
                 {formatting && (
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 rounded-2xl p-8 text-center shadow-xl border border-amber-200">
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-2xl p-8 text-center">
                     <FaMagic className="text-5xl text-amber-500 mx-auto mb-4 animate-pulse" />
                     <p className="font-medium text-amber-700">✨ IA estruturando seu documento...</p>
-                    <p className="text-sm text-amber-600 mt-2">Aplicando normas {mode === 'tcc' ? 'ABNT completas' : mode === 'faculdade' ? 'científicas' : 'do ENEM'}</p>
                   </div>
                 )}
-
                 {feedback && !analyzing && (
                   <div className="space-y-5">
-                    <div className={`rounded-2xl p-6 text-white text-center shadow-xl bg-gradient-to-r ${cfg[mode].color}`}>
+                    <div className={`rounded-2xl p-6 text-white text-center bg-gradient-to-r ${cfg[mode].color}`}>
                       <p className="text-sm opacity-90 mb-2">🎯 Nota da IA</p>
                       <p className="text-5xl font-bold">{feedback.grade}</p>
                       <p className="text-sm opacity-90 mt-2">{cfg[mode].gradeSuffix}</p>
                     </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-xl border border-gray-200 dark:border-gray-700">
-                      <h3 className="font-bold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                        <span>📊</span> Competências Avaliadas
-                      </h3>
-                      <div className="space-y-4">
-                        {feedback.competences?.map((comp, idx) => (
-                          <div key={idx}>
-                            <div className="flex justify-between text-sm mb-1">
-                              <span className="text-gray-600 dark:text-gray-400">{comp.name}</span>
-                              <span className="text-purple-600 font-bold">{comp.score}{mode === 'enem' ? '/200' : '%'}</span>
-                            </div>
-                            <ProgressBar value={comp.score} max={mode === 'enem' ? 200 : 100} color="purple" />
-                          </div>
-                        ))}
-                      </div>
+                    <div className="bg-white rounded-2xl p-5 shadow-xl">
+                      <h3 className="font-bold mb-4">📊 Competências</h3>
+                      {feedback.competences?.slice(0, 3).map((comp, i) => (
+                        <div key={i} className="mb-3">
+                          <div className="flex justify-between text-sm mb-1"><span>{comp.name}</span><span className="text-purple-600 font-bold">{comp.score}{mode === 'enem' ? '/200' : '%'}</span></div>
+                          <ProgressBar value={comp.score} max={mode === 'enem' ? 200 : 100} color="purple" />
+                        </div>
+                      ))}
                     </div>
-
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 rounded-2xl p-5 shadow-xl border border-green-200">
-                      <h3 className="font-bold text-green-700 mb-3 flex items-center gap-2">✅ Pontos Fortes</h3>
-                      <ul className="space-y-2">
-                        {feedback.strengths?.slice(0, 3).map((s, i) => (
-                          <li key={i} className="text-gray-700 dark:text-gray-300 text-sm flex gap-2"><span className="text-green-500">★</span> {s}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 rounded-2xl p-5 shadow-xl border border-yellow-200">
-                      <h3 className="font-bold text-yellow-700 mb-3 flex items-center gap-2">⚠️ Melhorias</h3>
-                      <ul className="space-y-2">
-                        {feedback.improvements?.slice(0, 3).map((s, i) => (
-                          <li key={i} className="text-gray-700 dark:text-gray-300 text-sm flex gap-2"><span className="text-yellow-500">◆</span> {s}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 rounded-2xl p-5 shadow-xl border border-blue-200">
-                      <h3 className="font-bold text-blue-700 mb-3 flex items-center gap-2">💡 Sugestões</h3>
-                      <ul className="space-y-2">
-                        {feedback.suggestions?.slice(0, 3).map((s, i) => (
-                          <li key={i} className="text-gray-700 dark:text-gray-300 text-sm flex gap-2"><span className="text-blue-500">→</span> {s}</li>
-                        ))}
-                      </ul>
-                    </div>
+                    <div className="bg-green-50 rounded-2xl p-4 border border-green-200"><h3 className="font-bold text-green-700 mb-2">✅ Pontos Fortes</h3><ul className="space-y-1 text-sm">{feedback.strengths?.slice(0, 3).map((s, i) => <li key={i}>★ {s}</li>)}</ul></div>
+                    <div className="bg-yellow-50 rounded-2xl p-4 border border-yellow-200"><h3 className="font-bold text-yellow-700 mb-2">⚠️ Melhorias</h3><ul className="space-y-1 text-sm">{feedback.improvements?.slice(0, 3).map((s, i) => <li key={i}>◆ {s}</li>)}</ul></div>
+                    <div className="bg-blue-50 rounded-2xl p-4 border border-blue-200"><h3 className="font-bold text-blue-700 mb-2">💡 Sugestões</h3><ul className="space-y-1 text-sm">{feedback.suggestions?.slice(0, 3).map((s, i) => <li key={i}>→ {s}</li>)}</ul></div>
                   </div>
                 )}
-
                 {!feedback && !analyzing && !formatting && (
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 rounded-2xl p-6 shadow-xl border border-purple-200 dark:border-purple-800">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center text-xl">💡</div>
-                      <h3 className="font-bold text-purple-700 text-lg">Dicas para {cfg[mode].label}</h3>
-                    </div>
-                    <ul className="space-y-3">
-                      {cfg[mode].tips?.slice(0, 5).map((tip, i) => (
-                        <li key={i} className="text-gray-700 dark:text-gray-300 text-sm flex gap-2">
-                          <span className="text-purple-500">•</span> {tip}
-                        </li>
-                      ))}
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl p-6 shadow-xl border border-purple-200">
+                    <h3 className="font-bold text-purple-700 mb-4">💡 Dicas para {cfg[mode].label}</h3>
+                    <ul className="space-y-2 text-sm">
+                      {mode === 'enem' && (<><li>📝 Introdução com tese clara e definida</li><li>🎯 Cada parágrafo = uma ideia principal</li><li>🔗 Use conectivos variados</li><li>💭 Conclusão com proposta de intervenção</li></>)}
+                      {mode === 'faculdade' && (<><li>🔍 Problema de pesquisa bem definido</li><li>📊 Metodologia adequada aos objetivos</li><li>📖 Revisão bibliográfica atualizada</li><li>💡 Contribuição original</li></>)}
+                      {mode === 'tcc' && (<><li>📚 Siga rigorosamente as normas ABNT</li><li>🔬 Metodologia detalhada e replicável</li><li>📊 Resultados com análise estatística</li><li>💬 Discussão comparando com literatura</li></>)}
                     </ul>
-                    <div className="mt-5 p-3 bg-white dark:bg-gray-700 rounded-xl text-center">
-                      <p className="text-xs text-purple-600 dark:text-purple-400">
-                        💪 {mode === 'tcc' ? 'TCC formatado com IA conforme ABNT NBR 14724' : mode === 'faculdade' ? 'Trabalho formatado com rigor científico' : 'Redação com estrutura ENEM nota 1000'}
-                      </p>
+                    <div className="mt-4 p-3 bg-white rounded-xl text-center text-xs text-purple-600">
+                      {mode === 'tcc' ? '✅ TCC formatado com IA conforme ABNT NBR 14724' : mode === 'faculdade' ? '✅ Trabalho formatado com rigor científico' : '✅ Redação com estrutura ENEM nota 1000'}
                     </div>
                   </div>
                 )}
