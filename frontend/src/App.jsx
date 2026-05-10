@@ -432,7 +432,6 @@ const Dashboard = ({ user }) => {
   );
 };
 
-export default Dashboard;
 
 const EssayEditor = ({ user }) => {
   const [essay, setEssay] = useState('');
@@ -959,7 +958,6 @@ REFERÊNCIAS (ABNT NBR 6023)`
   );
 };
 
-export default EssayEditor;
 
 
 // ========== PÁGINAS EM DESENVOLVIMENTO (ESTILIZADAS) ==========
