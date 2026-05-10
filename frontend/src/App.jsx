@@ -446,23 +446,6 @@ const Dashboard = ({ user }) => {
   );
 };
 
-// frontend/src/pages/EssayEditor.jsx
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { 
-  FaBook, FaFileAlt, FaFilePdf, FaMagic, FaSpinner, 
-  FaCheck, FaCopy, FaUndo, FaRobot, FaChartLine, 
-  FaLightbulb, FaQuoteRight, FaListOl, FaTimes,
-  FaUserGraduate, FaUniversity, FaSearch, FaStar,
-  FaClipboardList, FaChartBar, FaPenFancy
-} from 'react-icons/fa';
-import axios from 'axios';
-import Sidebar from '../components/Sidebar';
-import Header from '../components/Header';
-import { getFullUserData, updateDoc, doc, db, registerEssay } from '../config/firebase';
-import { checkBadges } from '../services/badgeService';
-import toast from 'react-hot-toast';
-
 const EssayEditor = ({ user }) => {
   // Estados principais
   const [essay, setEssay] = useState('');
