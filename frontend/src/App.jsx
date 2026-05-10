@@ -6,7 +6,8 @@ import axios from 'axios';
 import { 
   FaBook, FaFileAlt, FaFilePdf, FaMagic, FaSpinner, 
   FaCheck, FaCopy, FaUndo, FaRobot, FaChartLine, 
-  FaLightbulb, FaQuoteRight, FaListOl, FaSave, FaEye, FaDownload 
+  FaLightbulb, FaQuoteRight, FaListOl, FaSave, FaEye, FaDownload,
+  FaUserGraduate, FaUniversity, FaPenFancy, FaClipboardList  // ← esses são os que estavam faltando
 } from 'react-icons/fa';
 
 // IMPORTS DO FIREBASE (tudo do mesmo lugar)
