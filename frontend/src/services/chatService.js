@@ -12,6 +12,7 @@ import {
   arrayUnion,
   arrayRemove,
   getDoc,
+  getDocs,
   setDoc,
   deleteDoc,
   where,
@@ -184,12 +185,23 @@ export const likeComment = async (postId, commentIndex, userId) => {
 // ========== AMIGOS / SEGUIR USUÁRIOS ==========
 
 // Buscar usuários por nome ou email
-export const searchUsers = async (query) => {
+export const searchUsers = async (searchQuery) => {
   try {
     const usersRef = collection(db, 'users');
+    
     // Busca por nome
-    const nameQuery = query(usersRef, where('name', '>=', query), where('name', '<=', query + '\uf8ff'));
-    const emailQuery = query(usersRef, where('email', '>=', query), where('email', '<=', query + '\uf8ff'));
+    const nameQuery = query(
+      usersRef, 
+      where('name', '>=', searchQuery), 
+      where('name', '<=', searchQuery + '\uf8ff')
+    );
+    
+    // Busca por email
+    const emailQuery = query(
+      usersRef, 
+      where('email', '>=', searchQuery), 
+      where('email', '<=', searchQuery + '\uf8ff')
+    );
     
     const [nameSnapshot, emailSnapshot] = await Promise.all([
       getDocs(nameQuery),
@@ -223,7 +235,6 @@ export const followUser = async (currentUserId, targetUserId) => {
       following: arrayUnion(targetUserId)
     });
     
-    // Adicionar à lista de seguidores do alvo
     const targetUserRef = doc(db, 'users', targetUserId);
     await updateDoc(targetUserRef, {
       followers: arrayUnion(currentUserId)
@@ -304,7 +315,7 @@ export const listenUserGroups = (userId, callback) => {
   });
 };
 
-// Listar todos os grupos públicos
+// Listar todos os grupos
 export const listenAllGroups = (callback) => {
   const q = query(collection(db, 'groups'), orderBy('createdAt', 'desc'));
   
@@ -340,6 +351,58 @@ export const leaveGroup = async (groupId, userId) => {
       updatedAt: serverTimestamp()
     });
     return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Remover membro do grupo (apenas owner)
+export const removeGroupMember = async (groupId, userIdToRemove) => {
+  try {
+    const groupRef = doc(db, 'groups', groupId);
+    const groupDoc = await getDoc(groupRef);
+    
+    if (groupDoc.exists()) {
+      const currentMembers = groupDoc.data().members || [];
+      const newMembers = currentMembers.filter(id => id !== userIdToRemove);
+      
+      await updateDoc(groupRef, {
+        members: newMembers,
+        updatedAt: serverTimestamp()
+      });
+      return { success: true };
+    }
+    return { success: false, error: 'Grupo não encontrado' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Adicionar membro ao grupo
+export const addGroupMember = async (groupId, userIdToAdd) => {
+  try {
+    const groupRef = doc(db, 'groups', groupId);
+    await updateDoc(groupRef, {
+      members: arrayUnion(userIdToAdd),
+      updatedAt: serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Buscar membros do grupo
+export const getGroupMembers = async (groupId) => {
+  try {
+    const groupRef = doc(db, 'groups', groupId);
+    const groupDoc = await getDoc(groupRef);
+    
+    if (groupDoc.exists()) {
+      const members = groupDoc.data().members || [];
+      return { success: true, members };
+    }
+    return { success: false, error: 'Grupo não encontrado' };
   } catch (error) {
     return { success: false, error: error.message };
   }
