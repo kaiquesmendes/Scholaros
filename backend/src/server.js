@@ -20,7 +20,6 @@ app.use(express.json());
 // Função auxiliar para limpar e extrair JSON das respostas
 function extractJSON(text) {
   try {
-    // Tenta encontrar JSON entre colchetes ou chaves
     const match = text.match(/\[[\s\S]*\]/);
     if (match) {
       return JSON.parse(match[0]);
@@ -46,9 +45,8 @@ app.post('/api/essay/analyze', async (req, res) => {
         suggestions: ['Escreva pelo menos 20 linhas']
       });
     }
-    
 
-    const prompt = `Analise a seguinte redação como um corretor do ${mode === 'enem' ? 'ENEM' : 'nível superior'}.
+    const prompt = `Analise a seguinte redação como um corretor do ${mode === 'enem' ? 'ENEM' : mode === 'faculdade' ? 'nível superior' : 'TCC'}.
     
     Retorne APENAS um JSON válido com esta estrutura exata (sem texto antes ou depois):
     {
@@ -112,43 +110,34 @@ app.post('/api/pdf/process', upload.single('pdf'), async (req, res) => {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
 
-    // Extrair texto do PDF
     const pdfData = await pdfParse(req.file.buffer);
     const text = pdfData.text.substring(0, 6000);
     
     console.log(`📄 Processando PDF: ${req.file.originalname}`);
     console.log(`📝 Texto extraído: ${text.length} caracteres`);
 
-    // Executar todas as chamadas em paralelo
     const [summaryResult, flashcardsResult, questionsResult, mindMapResult] = await Promise.all([
-      model.generateContent(`Resuma o seguinte texto acadêmico em 3-4 parágrafos claros e concisos. Seja direto e mantenha os pontos principais:\n\n${text}`),
-      model.generateContent(`Crie 5 flashcards baseados no texto. Responda APENAS com um array JSON válido. Cada flashcard deve ter "question" e "answer". Exemplo: [{"question": "O que é X?", "answer": "X é Y"}]\n\nTexto: ${text}`),
-      model.generateContent(`Crie 3 questões de múltipla escolha baseadas no texto. Responda APENAS com um array JSON válido. Cada questão deve ter: "question", "options" (array com 4 strings), "correct" (string exata da opção correta). Exemplo: [{"question": "Pergunta?", "options": ["A", "B", "C", "D"], "correct": "A"}]\n\nTexto: ${text}`),
-      model.generateContent(`Crie um mapa mental simples do texto em formato de tópicos. Use * para cada nível. Máximo 8 linhas:\n\n${text.substring(0, 1500)}`)
+      model.generateContent(`Resuma o seguinte texto acadêmico em 3-4 parágrafos claros e concisos:\n\n${text}`),
+      model.generateContent(`Crie 5 flashcards baseados no texto. Responda APENAS com um array JSON válido. Exemplo: [{"question": "O que é X?", "answer": "X é Y"}]\n\nTexto: ${text}`),
+      model.generateContent(`Crie 3 questões de múltipla escolha. Responda APENAS com um array JSON. Cada questão deve ter: "question", "options" (4 strings), "correct".\n\nTexto: ${text}`),
+      model.generateContent(`Crie um mapa mental simples do texto em formato de tópicos. Máximo 8 linhas:\n\n${text.substring(0, 1500)}`)
     ]);
 
-    // Processar resumo
     const summary = summaryResult.response.text();
 
-    // Processar flashcards
     let flashcards = [];
     try {
       const flashcardsText = flashcardsResult.response.text();
       const parsed = extractJSON(flashcardsText);
       if (parsed && Array.isArray(parsed)) {
         flashcards = parsed.slice(0, 5);
-      } else {
-        throw new Error('Formato inválido');
       }
     } catch (e) {
-      console.error('Erro ao processar flashcards, usando fallback');
       flashcards = [
-        { question: "Qual é o tema principal do documento?", answer: "O tema principal deve ser extraído da leitura do texto." },
-        { question: "Quais são os conceitos-chave apresentados?", answer: "Os conceitos-chave estão detalhados no conteúdo original." }
+        { question: "Qual é o tema principal do documento?", answer: "Extraia da leitura do texto." }
       ];
     }
 
-    // Processar questões - CORRIGIDO
     let questions = [];
     try {
       const questionsText = questionsResult.response.text();
@@ -156,37 +145,23 @@ app.post('/api/pdf/process', upload.single('pdf'), async (req, res) => {
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
         questions = parsed.map(q => ({
           question: q.question || "Pergunta não disponível",
-          options: Array.isArray(q.options) && q.options.length === 4 ? q.options : ["Opção A", "Opção B", "Opção C", "Opção D"],
-          correct: q.correct || (q.options && q.options[0]) || "Opção A"
+          options: Array.isArray(q.options) && q.options.length === 4 ? q.options : ["A", "B", "C", "D"],
+          correct: q.correct || (q.options && q.options[0]) || "A"
         })).slice(0, 3);
-      } else {
-        throw new Error('Formato inválido');
       }
     } catch (e) {
-      console.error('Erro ao processar questões, usando fallback');
       questions = [
         {
-          question: "Qual é o assunto principal abordado no documento?",
-          options: ["Matemática Básica", "Português", "História", "Geografia"],
-          correct: "Matemática Básica"
-        },
-        {
-          question: "O que o texto mais enfatiza em relação ao aprendizado?",
-          options: ["Conceitos fundamentais", "Exemplos práticos", "Exercícios avançados", "Teorias complexas"],
-          correct: "Conceitos fundamentais"
-        },
-        {
-          question: "Qual a melhor forma de estudar este conteúdo segundo o texto?",
-          options: ["Leitura dinâmica", "Prática constante", "Apenas teoria", "Vídeos aulas"],
-          correct: "Prática constante"
+          question: "Qual é o assunto principal abordado?",
+          options: ["Matemática", "Português", "História", "Geografia"],
+          correct: "Matemática"
         }
       ];
     }
 
-    // Processar mapa mental
     let mindMap = mindMapResult.response.text();
     if (!mindMap || mindMap.length < 10) {
-      mindMap = "• Conceitos principais do documento\n• Organização do conteúdo\n• Aplicações práticas";
+      mindMap = "• Conceitos principais do documento\n• Organização do conteúdo";
     }
 
     console.log(`✅ Processado: ${flashcards.length} flashcards, ${questions.length} questões`);
@@ -207,18 +182,81 @@ app.post('/api/pdf/process', upload.single('pdf'), async (req, res) => {
     console.error('Erro no processamento do PDF:', error);
     res.status(500).json({ 
       error: 'Erro ao processar PDF',
-      summary: 'Ocorreu um erro ao processar seu documento. Tente novamente com um arquivo menor.',
-      flashcards: [
-        { question: "Tente processar novamente", answer: "O arquivo pode estar muito grande ou em formato incompatível" }
-      ],
-      questions: [
-        {
-          question: "Erro no processamento",
-          options: ["Tente novamente", "Use um arquivo menor", "Verifique o formato", "Contate o suporte"],
-          correct: "Tente novamente"
-        }
-      ],
-      mindMap: "• Erro no processamento\n• Tente novamente com um arquivo menor"
+      summary: 'Erro ao processar. Tente novamente.',
+      flashcards: [],
+      questions: [],
+      mindMap: 'Erro no processamento'
+    });
+  }
+});
+
+// ==================== FORMATAÇÃO ABNT (CORRIGIDO) ====================
+app.post('/api/essay/format-abnt', async (req, res) => {
+  try {
+    const { content, mode, tccConfig, prompt } = req.body;
+    
+    // Verificar se content existe
+    if (!content) {
+      return res.status(400).json({ 
+        formattedText: "Erro: Nenhum conteúdo para formatar.",
+        success: false 
+      });
+    }
+
+    console.log(`🎨 Formatando ${mode} com IA...`);
+    console.log(`📝 Tamanho do texto: ${content.length} caracteres`);
+
+    // Usar o prompt específico ou criar um genérico
+    let finalPrompt = prompt;
+    if (!finalPrompt) {
+      if (mode === 'enem') {
+        finalPrompt = `Formate o texto como uma REDAÇÃO ENEM seguindo:
+- Introdução com tese
+- 2 parágrafos de desenvolvimento
+- Conclusão com proposta de intervenção
+- Linguagem formal
+
+Texto: ${content.substring(0, 8000)}`;
+      } else if (mode === 'faculdade') {
+        finalPrompt = `Formate o texto como ARTIGO CIENTÍFICO:
+- Título, Autor, Resumo, Palavras-chave
+- Introdução, Metodologia, Resultados, Conclusão
+- Referências
+
+Texto: ${content.substring(0, 8000)}`;
+      } else {
+        finalPrompt = `Formate o texto como TCC seguindo normas ABNT:
+Título: ${tccConfig?.titulo || 'Título'}
+Autor: ${tccConfig?.autor || 'Autor'}
+Orientador: ${tccConfig?.orientador || 'Orientador'}
+Instituição: ${tccConfig?.instituicao || 'Instituição'}
+
+Estrutura obrigatória:
+- Capa, Folha de rosto, Resumo, Abstract, Sumário
+- Introdução, Desenvolvimento, Conclusão
+- Referências ABNT
+
+Texto: ${content.substring(0, 8000)}`;
+      }
+    }
+
+    const result = await model.generateContent(finalPrompt);
+    const formattedText = result.response.text();
+    
+    console.log("✅ Formatação concluída com sucesso!");
+    
+    res.json({ 
+      formattedText: formattedText, 
+      success: true 
+    });
+    
+  } catch (error) {
+    console.error('Erro na formatação ABNT:', error);
+    // Enviar o texto original de volta em caso de erro
+    res.json({ 
+      formattedText: req.body?.content || "Erro ao formatar. Tente novamente.",
+      success: false,
+      error: error.message
     });
   }
 });
@@ -229,7 +267,7 @@ app.post('/api/chat', async (req, res) => {
     const { message } = req.body;
     
     const result = await model.generateContent(
-      `Você é um tutor acadêmico paciente e didático. Responda de forma clara, concisa e útil: ${message}`
+      `Você é um tutor acadêmico paciente e didático. Responda de forma clara: ${message}`
     );
     
     res.json({ response: result.response.text() });
@@ -244,25 +282,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+// ==================== ROTA RAIZ ====================
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'ScholarOS API está rodando!',
+    endpoints: ['/api/essay/analyze', '/api/pdf/process', '/api/essay/format-abnt', '/api/chat']
+  });
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 ScholarOS backend rodando na porta ${PORT}`);
   console.log(`🤖 Gemini API: ${process.env.GEMINI_API_KEY ? '✅ Configurada' : '❌ Chave não encontrada'}`);
   console.log(`📡 Disponível em: http://localhost:${PORT}`);
-});
-
-// backend/server.js - Adicione esta rota
-app.post('/api/essay/format-abnt', async (req, res) => {
-  try {
-    const { content, tccData, prompt } = req.body;
-    
-    // Usar IA para formatar (Gemini/GPT)
-    const result = await model.generateContent(prompt);
-    const formattedText = result.response.text();
-    
-    res.json({ formattedText, success: true });
-  } catch (error) {
-    console.error('Erro na formatação ABNT:', error);
-    res.json({ formattedText: content, success: false });
-  }
 });
