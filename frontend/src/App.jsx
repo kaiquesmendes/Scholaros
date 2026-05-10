@@ -1462,16 +1462,17 @@ function App() {
     <Router>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         <Routes>
-          <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
-          <Route path="/" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
-          <Route path="/essay" element={user ? <EssayEditor user={user} /> : <Navigate to="/login" />} />
-          <Route path="/pdfs" element={user ? <PDFManager user={user} /> : <Navigate to="/login" />} />
-          <Route path="/profile" element={user ? <Profile user={user} /> : <Navigate to="/login" />} />
-          <Route path="/cognitive-map" element={user ? <CognitiveMap user={user} /> : <Navigate to="/login" />} />
-          <Route path="/social" element={user ? <SocialNetwork user={user} /> : <Navigate to="/login" />} />
-          <Route path="/groups" element={user ? <StudyGroups user={user} /> : <Navigate to="/login" />} />
-          <Route path="/productivity" element={user ? <AntiProcrastination user={user} /> : <Navigate to="/login" />} />
-        </Routes>
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+      <Route path="/" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
+      <Route path="/essay" element={user ? <EssayEditor user={user} /> : <Navigate to="/login" />} />
+      <Route path="/pdfs" element={user ? <PDFManager user={user} /> : <Navigate to="/login" />} />
+      <Route path="/profile" element={user ? <Profile user={user} /> : <Navigate to="/login" />} />
+      <Route path="/cognitive-map" element={user ? <CognitiveMap user={user} /> : <Navigate to="/login" />} />
+      <Route path="/social" element={user ? <SocialNetwork user={user} /> : <Navigate to="/login" />} />
+      <Route path="/groups" element={user ? <StudyGroups user={user} /> : <Navigate to="/login" />} />
+      <Route path="/groups/:groupId" element={user ? <StudyGroups user={user} /> : <Navigate to="/login" />} />
+      <Route path="/productivity" element={user ? <AntiProcrastination user={user} /> : <Navigate to="/login" />} />
+  </Routes>
         <Toaster
           position="top-right"
           toastOptions={{
