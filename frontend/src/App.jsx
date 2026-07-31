@@ -721,6 +721,7 @@ ANEXOS (opcional)`
       if (expansionMode) modeText += ' Ativar MODO EXPANSÃO - expanda ideias curtas.';
       if (formatterMode) modeText += ' Ativar MODO FORMATADOR - corrija estrutura e formatação.';
 
+      const idToken = await auth.currentUser.getIdToken();
       const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/analyze', {
         content: essay,
         mode: mode,
@@ -730,6 +731,8 @@ ANEXOS (opcional)`
         expansionMode: expansionMode,
         formatterMode: formatterMode,
         tccConfig: tccConfig
+      }, {
+        headers: { Authorization: `Bearer ${idToken}` }
       });
       
       setFeedback(response.data.feedback || response.data);
@@ -802,6 +805,7 @@ ANEXOS (opcional)`
     toast.loading(`🤖 IA formatando seu ${cfg[mode].label}...`, { id: 'format' });
 
     try {
+      const idToken = await auth.currentUser.getIdToken();
       const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
         content: essay,
         mode: mode,
@@ -810,6 +814,8 @@ ANEXOS (opcional)`
         humanizerMode: humanizerMode,
         expansionMode: expansionMode,
         formatterMode: formatterMode
+      }, {
+        headers: { Authorization: `Bearer ${idToken}` }
       });
 
       const formattedText = response.data.formattedText || response.data.content;

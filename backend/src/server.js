@@ -2,11 +2,43 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const pdfParse = require('pdf-parse');
 
 const app = express();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// ==================== FIREBASE ADMIN (verificação de token) ====================
+admin.initializeApp({
+  credential: admin.credential.cert({
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+    // Em algumas plataformas (Render, Vercel) a env var chega com \n escapado
+    privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+  }),
+});
+
+// Middleware: exige um ID token válido do Firebase Auth no header Authorization
+async function requireAuth(req, res, next) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : null;
+
+    if (!token) {
+      return res.status(401).json({ error: 'Token de autenticação ausente.' });
+    }
+
+    const decoded = await admin.auth().verifyIdToken(token);
+    req.user = decoded; // disponibiliza uid/email para as rotas, se precisar
+    next();
+  } catch (error) {
+    console.error('Falha na verificação do token:', error.message);
+    return res.status(401).json({ error: 'Token inválido ou expirado.' });
+  }
+}
 
 // Inicializar Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -14,8 +46,18 @@ const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite-preview" 
 
 console.log("🤖 Gemini inicializado com modelo: gemini-3.1-flash-lite-preview");
 
+app.use(helmet());
 app.use(cors());
 app.use(express.json());
+
+// Rate limit: protege as rotas de IA (custosas) de abuso, mesmo autenticadas
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 30, // até 30 requisições de IA por usuário/IP a cada 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Muitas requisições de IA em pouco tempo. Tente novamente em alguns minutos.' },
+});
 
 // Função auxiliar para limpar e extrair JSON das respostas
 function extractJSON(text) {
@@ -32,7 +74,7 @@ function extractJSON(text) {
 }
 
 // ==================== ANÁLISE DE REDAÇÃO ====================
-app.post('/api/essay/analyze', async (req, res) => {
+app.post('/api/essay/analyze', requireAuth, aiLimiter, async (req, res) => {
   try {
     const { content, mode } = req.body;
     
@@ -104,7 +146,7 @@ app.post('/api/essay/analyze', async (req, res) => {
 });
 
 // ==================== PROCESSAMENTO DE PDF ====================
-app.post('/api/pdf/process', upload.single('pdf'), async (req, res) => {
+app.post('/api/pdf/process', requireAuth, aiLimiter, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
@@ -191,7 +233,7 @@ app.post('/api/pdf/process', upload.single('pdf'), async (req, res) => {
 });
 
 // ==================== FORMATAÇÃO ABNT (CORRIGIDO) ====================
-app.post('/api/essay/format-abnt', async (req, res) => {
+app.post('/api/essay/format-abnt', requireAuth, aiLimiter, async (req, res) => {
   try {
     const { content, mode, tccConfig, prompt } = req.body;
     
@@ -262,7 +304,7 @@ Texto: ${content.substring(0, 8000)}`;
 });
 
 // ==================== ASSISTENTE DE ESTUDOS ====================
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', requireAuth, aiLimiter, async (req, res) => {
   try {
     const { message } = req.body;
     

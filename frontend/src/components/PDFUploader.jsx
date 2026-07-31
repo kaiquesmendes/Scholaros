@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { FaUpload, FaFilePdf, FaSpinner, FaCheckCircle, FaTimes, FaBook, FaLightbulb, FaBrain } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import axios from 'axios';
+import { auth } from '../config/firebase';
 
 const PDFUploader = ({ user, onPDFProcessed }) => {
   const [files, setFiles] = useState([]);
@@ -45,8 +46,12 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
     formData.append('pdf', fileItem.file);
 
     try {
+      const idToken = await auth.currentUser.getIdToken();
       const response = await axios.post('https://scholaros-5ncu.onrender.com/api/pdf/process', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${idToken}`
+        },
         timeout: 60000
       });
       
