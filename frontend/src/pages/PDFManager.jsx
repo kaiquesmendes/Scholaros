@@ -5,7 +5,7 @@ import { FaFileAlt, FaAward, FaHistory } from 'react-icons/fa';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
 import PDFUploader from '../components/PDFUploader';
-import { getFullUserData, updateDoc, doc, db } from '../config/firebase';
+import { getFullUserData, registerPDF } from '../config/firebase';
 import { checkBadges } from '../services/badgeService';
 import toast from 'react-hot-toast';
 
@@ -27,48 +27,24 @@ const PDFManager = ({ user }) => {
     fetchUserData();
   }, [user]);
 
-  // Função chamada quando um PDF é processado
+  // Função chamada quando um PDF é processado: registra XP (com level-up), histórico e conquistas.
   const handlePDFProcessed = async (fileName, pages) => {
     try {
-      const userResult = await getFullUserData(user.uid);
-      if (userResult.success) {
-        const data = userResult.data;
-        const currentStats = data.stats || {};
-        const newPDFsProcessed = (currentStats.totalPDFsProcessed || 0) + 1;
-        
-        await updateDoc(doc(db, 'users', user.uid), {
-          'stats.totalPDFsProcessed': newPDFsProcessed,
-          'stats.currentXP': (currentStats.currentXP || 0) + 20
-        });
-        
-        // Adicionar ao histórico
-        const newHistory = {
-          id: Date.now(),
-          name: fileName,
-          pages: pages,
-          date: new Date().toLocaleString(),
-          xpGained: 20
-        };
-        
-        await updateDoc(doc(db, 'users', user.uid), {
-          recentPDFs: [newHistory, ...(data.recentPDFs || [])].slice(0, 10)
-        });
-        
-        await checkBadges(user.uid, 'pdf', newPDFsProcessed);
-        
-        // Atualizar estado local
-        setProcessingHistory(prev => [newHistory, ...prev].slice(0, 10));
-        setUserData(prev => ({
-          ...prev,
-          stats: {
-            ...prev.stats,
-            totalPDFsProcessed: newPDFsProcessed,
-            currentXP: (currentStats.currentXP || 0) + 20
-          }
-        }));
-        
-        toast.success(`📄 +20 XP! Total: ${newPDFsProcessed} PDFs`);
+      const result = await registerPDF(user.uid, fileName, pages);
+      if (!result.success) {
+        toast.error('Não foi possível registrar o PDF no seu histórico.');
+        return;
       }
+
+      await checkBadges(user.uid);
+
+      const fresh = await getFullUserData(user.uid);
+      if (fresh.success) {
+        setUserData(fresh.data);
+        setProcessingHistory(fresh.data.recentPDFs || []);
+      }
+
+      toast.success(`📄 +${result.xpGained} XP!`);
     } catch (error) {
       console.error('Erro ao registrar PDF:', error);
     }

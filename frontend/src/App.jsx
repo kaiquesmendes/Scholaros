@@ -251,7 +251,7 @@ const Dashboard = ({ user }) => {
           });
           setRecentActivities(data.recentActivities?.slice(0, 5) || []);
           
-          await checkBadges(user.uid, 'study', data.stats?.totalStudyHours);
+          await checkBadges(user.uid);
           
           toast.success(`✨ +${newHours}h em ${subjectName}! +${newHours * 10} XP`);
         }
@@ -266,11 +266,11 @@ const Dashboard = ({ user }) => {
     }
   };
 
-  // Calcular nível do usuário
-  const userLevel = Math.floor(stats.totalHours / 50) + 1;
-  const nextLevelXP = userLevel * 50;
-  const currentXP = stats.totalHours % 50;
-  const xpProgress = (currentXP / nextLevelXP) * 100;
+  // Nível e XP vêm do Firestore (mesma fonte do Header): 1000 XP por nível.
+  const userLevel = userData?.stats?.level || 1;
+  const nextLevelXP = userData?.stats?.nextLevelXP || 1000;
+  const currentXP = userData?.stats?.currentXP || 0;
+  const xpProgress = Math.min(100, (currentXP / nextLevelXP) * 100);
   const overallProgress = subjects.length > 0 
     ? Math.round(subjects.reduce((acc, sub) => acc + (sub.progress || 0), 0) / subjects.length) 
     : 0;
@@ -386,7 +386,7 @@ const Dashboard = ({ user }) => {
             </div>
             <div className="mt-6 pt-6 border-t border-white/20 flex flex-wrap justify-between text-white/80 text-sm gap-2">
               <span>📊 Total de estudos: {stats.totalHours} horas</span>
-              <span>🎯 Meta da semana: {Math.max(0, 10 - Math.floor(stats.totalHours / 10))}h para próximo nível</span>
+              <span>🎯 Faltam {Math.max(0, nextLevelXP - currentXP)} XP para o nível {userLevel + 1}</span>
             </div>
           </motion.div>
 
@@ -689,11 +689,11 @@ ANEXOS (opcional)`
   // Registrar redação no sistema
   const registerEssayWritten = async (score) => {
     try {
-      const result = await registerEssay(user.uid, score);
+      const result = await registerEssay(user.uid, score, mode);
       if (result.success) {
         toast.success(`✍️ +50 XP! Redação registrada`);
       }
-      await checkBadges(user.uid, 'essay', userData?.stats?.totalEssaysWritten + 1 || 1);
+      await checkBadges(user.uid);
     } catch (error) {
       console.error('Erro ao registrar redação:', error);
     }
