@@ -4,8 +4,7 @@ import { useDropzone } from 'react-dropzone';
 import { motion } from 'framer-motion';
 import { FaUpload, FaFilePdf, FaSpinner, FaCheckCircle, FaTimes, FaBook, FaLightbulb, FaBrain } from 'react-icons/fa';
 import toast from 'react-hot-toast';
-import axios from 'axios';
-import { auth } from '../config/firebase';
+import { pdfAPI, getApiErrorMessage } from '../services/api';
 
 const PDFUploader = ({ user, onPDFProcessed }) => {
   const [files, setFiles] = useState([]);
@@ -42,18 +41,8 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
       f.id === fileItem.id ? { ...f, status: 'processing' } : f
     ));
 
-    const formData = new FormData();
-    formData.append('pdf', fileItem.file);
-
     try {
-      const idToken = await auth.currentUser.getIdToken();
-      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/pdf/process', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${idToken}`
-        },
-        timeout: 60000
-      });
+      const response = await pdfAPI.upload(fileItem.file);
       
       setProcessedData(response.data);
       setFiles(prev => prev.map(f => 
@@ -68,7 +57,7 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
       toast.success('✅ PDF processado com sucesso!');
     } catch (error) {
       console.error('Erro:', error);
-      toast.error('❌ Erro ao processar PDF. Tente novamente.');
+      toast.error(`❌ ${getApiErrorMessage(error, 'Erro ao processar PDF. Tente novamente.')}`);
       setFiles(prev => prev.map(f => 
         f.id === fileItem.id ? { ...f, status: 'pending' } : f
       ));

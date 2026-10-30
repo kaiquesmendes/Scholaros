@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, Navigate, Link } from 'react-router-dom';
 import { Toaster, toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
-import axios from 'axios';
 import { 
   FaBook, FaFileAlt, FaFilePdf, FaMagic, FaSpinner, 
   FaCheck, FaCopy, FaUndo, FaRobot, FaChartLine, 
@@ -29,6 +28,7 @@ import {
 
 // Outros serviços
 import { checkBadges } from './services/badgeService';
+import { essayAPI, getApiErrorMessage } from './services/api';
 
 // Componentes
 import Sidebar from './components/Sidebar';
@@ -721,8 +721,7 @@ ANEXOS (opcional)`
       if (expansionMode) modeText += ' Ativar MODO EXPANSÃO - expanda ideias curtas.';
       if (formatterMode) modeText += ' Ativar MODO FORMATADOR - corrija estrutura e formatação.';
 
-      const idToken = await auth.currentUser.getIdToken();
-      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/analyze', {
+      const response = await essayAPI.analyze({
         content: essay,
         mode: mode,
         professorMode: professorMode,
@@ -731,8 +730,6 @@ ANEXOS (opcional)`
         expansionMode: expansionMode,
         formatterMode: formatterMode,
         tccConfig: tccConfig
-      }, {
-        headers: { Authorization: `Bearer ${idToken}` }
       });
       
       setFeedback(response.data.feedback || response.data);
@@ -745,37 +742,10 @@ ANEXOS (opcional)`
       let notaDisplay = mode === 'enem' ? `${response.data.grade}/1000` : `${response.data.grade}%`;
       toast.success(`✅ Análise concluída! Nota: ${notaDisplay}`, { id: 'analyzing' });
     } catch (error) {
+      // Sem nota simulada: se a IA falhou, o usuário vê o erro e nenhum XP é concedido.
       console.error('Erro:', error);
-      toast.error('❌ Erro na análise. Usando simulação.', { id: 'analyzing' });
-      
-      const mockScore = mode === 'enem' ? 780 : 82;
-      setFeedback({
-        grade: mockScore,
-        competences: [
-          { name: 'Competência 1 - Domínio da norma culta', score: mode === 'enem' ? 160 : 85 },
-          { name: 'Competência 2 - Compreensão da proposta', score: mode === 'enem' ? 155 : 82 },
-          { name: 'Competência 3 - Argumentação', score: mode === 'enem' ? 150 : 80 },
-          { name: 'Competência 4 - Conectivos', score: mode === 'enem' ? 160 : 83 },
-          { name: 'Competência 5 - Proposta de intervenção', score: mode === 'enem' ? 155 : 82 }
-        ],
-        strengths: [
-          '🎯 Excelente estrutura textual com introdução, desenvolvimento e conclusão',
-          '💡 Argumentos coerentes e bem fundamentados',
-          '📚 Bom repertório sociocultural e referências acadêmicas'
-        ],
-        improvements: [
-          '🔍 Aprofundar a argumentação nos parágrafos de desenvolvimento',
-          '✍️ Melhorar a proposta de intervenção com mais detalhes',
-          '📖 Revisar pequenos desvios gramaticais e de concordância'
-        ],
-        suggestions: [
-          '🎓 Leia redações nota 1000 para referência de estrutura',
-          '📝 Faça um planejamento antes de escrever',
-          '🔄 Revise sempre após terminar de escrever'
-        ],
-        alerts: []
-      });
-      await registerEssayWritten(mockScore);
+      setFeedback(null);
+      toast.error(`❌ ${getApiErrorMessage(error, 'Erro na análise. Tente novamente.')}`, { id: 'analyzing' });
     } finally {
       setAnalyzing(false);
     }
@@ -805,8 +775,7 @@ ANEXOS (opcional)`
     toast.loading(`🤖 IA formatando seu ${cfg[mode].label}...`, { id: 'format' });
 
     try {
-      const idToken = await auth.currentUser.getIdToken();
-      const response = await axios.post('https://scholaros-5ncu.onrender.com/api/essay/format-abnt', {
+      const response = await essayAPI.formatABNT({
         content: essay,
         mode: mode,
         tccConfig: tccConfig,
@@ -814,8 +783,6 @@ ANEXOS (opcional)`
         humanizerMode: humanizerMode,
         expansionMode: expansionMode,
         formatterMode: formatterMode
-      }, {
-        headers: { Authorization: `Bearer ${idToken}` }
       });
 
       const formattedText = response.data.formattedText || response.data.content;
@@ -823,7 +790,7 @@ ANEXOS (opcional)`
       toast.success(`✅ ${cfg[mode].label} formatado com sucesso!`, { id: 'format' });
     } catch (error) {
       console.error('Erro:', error);
-      toast.error('❌ Erro na formatação', { id: 'format' });
+      toast.error(`❌ ${getApiErrorMessage(error, 'Erro na formatação. Tente novamente.')}`, { id: 'format' });
     } finally {
       setFormatting(false);
     }
