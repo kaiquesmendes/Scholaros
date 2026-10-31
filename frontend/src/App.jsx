@@ -42,6 +42,8 @@ import StudyGroups from './pages/StudyGroups';
 import PDFManager from './pages/PDFManager';
 import CognitiveMap from './pages/CognitiveMap';
 import AntiProcrastination from './pages/AntiProcrastination';
+import Review from './pages/Review';
+import Tutor from './pages/Tutor';
 
 // ========== COMPONENTE DE LOADING ==========
 const LoadingScreen = () => (
@@ -1404,6 +1406,8 @@ function App() {
       <Route path="/" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
       <Route path="/essay" element={user ? <EssayEditor user={user} /> : <Navigate to="/login" />} />
       <Route path="/pdfs" element={user ? <PDFManager user={user} /> : <Navigate to="/login" />} />
+      <Route path="/review" element={user ? <Review user={user} /> : <Navigate to="/login" />} />
+      <Route path="/tutor" element={user ? <Tutor user={user} /> : <Navigate to="/login" />} />
       <Route path="/profile" element={user ? <Profile user={user} /> : <Navigate to="/login" />} />
       <Route path="/cognitive-map" element={user ? <CognitiveMap user={user} /> : <Navigate to="/login" />} />
       <Route path="/social" element={user ? <SocialNetwork user={user} /> : <Navigate to="/login" />} />

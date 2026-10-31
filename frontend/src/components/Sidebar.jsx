@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaHome, FaFeatherAlt, FaFilePdf, FaBrain, FaUsers, FaUserFriends, FaRocket, FaSignOutAlt, FaUser } from 'react-icons/fa';
+import { FaHome, FaFeatherAlt, FaFilePdf, FaBrain, FaUsers, FaUserFriends, FaRocket, FaSignOutAlt, FaUser, FaLayerGroup, FaRobot } from 'react-icons/fa';
 import { logoutUser } from '../config/firebase';
 import toast from 'react-hot-toast';
 
@@ -22,6 +22,8 @@ const Sidebar = ({ user }) => {
     { path: '/', icon: <FaHome />, label: 'Dashboard' },
     { path: '/essay', icon: <FaFeatherAlt />, label: 'Redação IA' },
     { path: '/pdfs', icon: <FaFilePdf />, label: 'PDFs' },
+    { path: '/review', icon: <FaLayerGroup />, label: 'Revisão' },
+    { path: '/tutor', icon: <FaRobot />, label: 'Tutor IA' },
     { path: '/cognitive-map', icon: <FaBrain />, label: 'Mapa Cognitivo' },
     { path: '/profile', icon: <FaUser />, label: 'Meu Perfil' },
     { path: '/social', icon: <FaUsers />, label: 'Rede Social' },
@@ -44,7 +46,7 @@ const Sidebar = ({ user }) => {
         )}
       </div>
       
-      <nav className="flex-1 p-4">
+      <nav className="flex-1 p-4 overflow-y-auto">
         {menuItems.map((item) => (
           <Link
             key={item.path}
