@@ -554,3 +554,54 @@ export const registerPDF = async (uid, fileName, pages) => {
     return { success: false, error: error.message };
   }
 };
+
+// ========== REVISÃO ESPAÇADA ==========
+
+// Registra uma sessão de revisão de cartões. `total` e `remembered` contam só a primeira
+// resposta de cada cartão na sessão (como o Anki), para a retenção não ser inflada por
+// repetições. A "Retenção Média" do Dashboard é remembered/total acumulado.
+export const registerReviewSession = async (uid, { total, remembered }) => {
+  try {
+    if (!total || total < 0 || remembered < 0 || remembered > total) {
+      return { success: false, error: 'Dados de revisão inválidos' };
+    }
+    const userRef = doc(db, 'users', uid);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists()) return { success: false, error: 'Usuário não encontrado' };
+
+    const data = userSnap.data();
+    const stats = data.stats || {};
+    const reviewsTotal = (stats.reviewsTotal || 0) + total;
+    const reviewsRemembered = (stats.reviewsRemembered || 0) + remembered;
+    const averageRetention = Math.round((reviewsRemembered / reviewsTotal) * 100);
+
+    // 2 XP por cartão lembrado e 1 por cartão que ainda precisa de reforço.
+    const xpGain = remembered * 2 + (total - remembered);
+    const { currentXP, level } = applyXP(stats, xpGain);
+
+    const activity = {
+      id: Date.now(),
+      title: 'Revisão de flashcards',
+      description: `${remembered}/${total} cartões lembrados`,
+      date: new Date().toLocaleString('pt-BR'),
+      icon: '🧠',
+      type: 'review',
+      xpGained: xpGain,
+    };
+
+    await updateDoc(userRef, {
+      'stats.reviewsTotal': reviewsTotal,
+      'stats.reviewsRemembered': reviewsRemembered,
+      'stats.averageRetention': averageRetention,
+      'stats.currentXP': currentXP,
+      'stats.level': level,
+      recentActivities: [activity, ...(data.recentActivities || [])].slice(0, 20),
+      updatedAt: new Date().toISOString(),
+    });
+
+    return { success: true, xpGained: xpGain, averageRetention };
+  } catch (error) {
+    console.error('Erro ao registrar revisão:', error);
+    return { success: false, error: error.message };
+  }
+};
