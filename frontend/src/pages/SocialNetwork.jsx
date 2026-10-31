@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fa';
 import Sidebar from '../components/Sidebar';
 import Header from '../components/Header';
-import { getFullUserData, updateUserData, getAllUsers } from '../config/firebase';
+import { getFullUserData, updateUserData } from '../config/firebase';
 import { 
   sendGlobalMessage, listenGlobalMessages, likeMessage, 
   createPost, listenPosts, likePost, addComment, 
