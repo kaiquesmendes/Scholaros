@@ -343,6 +343,21 @@ export const deleteProfilePhoto = async (uid) => {
   }
 };
 
+// ========== XP E NÍVEL ==========
+
+const XP_PER_LEVEL = 1000;
+
+// Única fonte de verdade para ganho de XP: soma o XP, sobe quantos níveis couberem
+// e devolve o XP restante dentro do nível atual.
+const applyXP = (stats, gain) => {
+  const perLevel = stats.nextLevelXP || XP_PER_LEVEL;
+  const total = (stats.currentXP || 0) + gain;
+  return {
+    currentXP: total % perLevel,
+    level: (stats.level || 1) + Math.floor(total / perLevel),
+  };
+};
+
 // ========== ESTATÍSTICAS DE ESTUDO ==========
 
 export const updateStudyStats = async (uid, hours, subjectName) => {
@@ -385,15 +400,7 @@ export const updateStudyStats = async (uid, hours, subjectName) => {
       
       // Calcular XP
       const xpGain = hours * 10;
-      const newXP = (currentStats.currentXP || 0) + xpGain;
-      const nextLevelXP = currentStats.nextLevelXP || 1000;
-      let newLevel = currentStats.level || 1;
-      let finalXP = newXP;
-      
-      if (newXP >= nextLevelXP) {
-        newLevel += Math.floor(newXP / nextLevelXP);
-        finalXP = newXP % nextLevelXP;
-      }
+      const { currentXP: finalXP, level: newLevel } = applyXP(currentStats, xpGain);
       
       // Atividade
       const newActivity = {
@@ -434,7 +441,7 @@ export const updateStudyStats = async (uid, hours, subjectName) => {
 
 // ========== REDAÇÕES ==========
 
-export const registerEssay = async (uid, score) => {
+export const registerEssay = async (uid, score, mode) => {
   try {
     const userRef = doc(db, 'users', uid);
     const userSnap = await getDoc(userRef);
@@ -450,15 +457,7 @@ export const registerEssay = async (uid, score) => {
       
       // XP por redação
       const xpGain = 50;
-      const newXP = (currentStats.currentXP || 0) + xpGain;
-      const nextLevelXP = currentStats.nextLevelXP || 1000;
-      let newLevel = currentStats.level || 1;
-      let finalXP = newXP;
-      
-      if (newXP >= nextLevelXP) {
-        newLevel += Math.floor(newXP / nextLevelXP);
-        finalXP = newXP % nextLevelXP;
-      }
+      const { currentXP: finalXP, level: newLevel } = applyXP(currentStats, xpGain);
       
       // Atividade
       const newActivity = {
@@ -478,6 +477,8 @@ export const registerEssay = async (uid, score) => {
       await updateDoc(userRef, {
         'stats.totalEssaysWritten': newEssaysWritten,
         'stats.averageEssayScore': Math.round(newAverage),
+        // Melhor nota na escala ENEM (0-1000); usada pelo badge "Nota 1000".
+        ...(mode === 'enem' ? { 'stats.bestEnemScore': Math.max(currentStats.bestEnemScore || 0, score) } : {}),
         'stats.currentXP': finalXP,
         'stats.level': newLevel,
         recentActivities: updatedActivities,
@@ -507,15 +508,7 @@ export const registerPDF = async (uid, fileName, pages) => {
       
       // XP por PDF
       const xpGain = 20;
-      const newXP = (currentStats.currentXP || 0) + xpGain;
-      const nextLevelXP = currentStats.nextLevelXP || 1000;
-      let newLevel = currentStats.level || 1;
-      let finalXP = newXP;
-      
-      if (newXP >= nextLevelXP) {
-        newLevel += Math.floor(newXP / nextLevelXP);
-        finalXP = newXP % nextLevelXP;
-      }
+      const { currentXP: finalXP, level: newLevel } = applyXP(currentStats, xpGain);
       
       // Histórico de PDFs
       const newPDFHistory = {
@@ -559,67 +552,5 @@ export const registerPDF = async (uid, fileName, pages) => {
   } catch (error) {
     console.error('Erro ao registrar PDF:', error);
     return { success: false, error: error.message };
-  }
-};
-
-// ========== CONQUISTAS ==========
-
-export const checkAndUpdateBadges = async (uid, type, value) => {
-  try {
-    const userRef = doc(db, 'users', uid);
-    const userSnap = await getDoc(userRef);
-    
-    if (userSnap.exists()) {
-      const data = userSnap.data();
-      const currentBadges = data.badges || [];
-      let updatedBadges = [...currentBadges];
-      let hasNewBadge = false;
-      
-      const badgeConditions = {
-        1: { name: 'Primeiros Passos', condition: () => value >= 1, type: 'study' },
-        2: { name: 'Dedicado', condition: () => data.stats?.currentStreak >= 30, type: 'streak' },
-        3: { name: 'Mestre das Redações', condition: () => data.stats?.totalEssaysWritten >= 10, type: 'essay' },
-        4: { name: 'Leitor Voraz', condition: () => data.stats?.totalPDFsProcessed >= 50, type: 'pdf' },
-        5: { name: 'Nota 1000', condition: () => data.stats?.averageEssayScore >= 1000, type: 'essay_grade' },
-        6: { name: 'Mestre dos Estudos', condition: () => data.stats?.totalStudyHours >= 100, type: 'hours' }
-      };
-      
-      for (const [id, badge] of Object.entries(badgeConditions)) {
-        const existingBadge = updatedBadges.find(b => b.id === parseInt(id));
-        if (!existingBadge?.earned && badge.condition()) {
-          const badgeIndex = updatedBadges.findIndex(b => b.id === parseInt(id));
-          if (badgeIndex >= 0) {
-            updatedBadges[badgeIndex] = { 
-              ...updatedBadges[badgeIndex], 
-              earned: true, 
-              date: new Date().toISOString() 
-            };
-          } else {
-            updatedBadges.push({
-              id: parseInt(id),
-              name: badge.name,
-              description: `Desbloqueado por ${badge.type}`,
-              icon: '🏆',
-              earned: true,
-              date: new Date().toISOString()
-            });
-          }
-          hasNewBadge = true;
-        }
-      }
-      
-      if (hasNewBadge) {
-        await updateDoc(userRef, {
-          badges: updatedBadges,
-          'stats.badgesEarned': updatedBadges.filter(b => b.earned).length
-        });
-      }
-      
-      return { success: true, hasNewBadge };
-    }
-    return { success: false };
-  } catch (error) {
-    console.error('Erro ao verificar conquistas:', error);
-    return { success: false };
   }
 };

@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { auth } from '../config/firebase';
 
+// Em produção defina VITE_API_URL no ambiente de build (Vercel). O fallback aponta
+// para o backend publicado; em desenvolvimento use frontend/.env (ver .env.example).
 const API_URL =
   import.meta.env.VITE_API_URL ||
   'https://scholaros-5ncu.onrender.com';
@@ -23,8 +25,13 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
+// Mensagem amigável a partir de um erro do axios (usa o `error` devolvido pelo backend).
+export const getApiErrorMessage = (error, fallback = 'Algo deu errado. Tente novamente.') =>
+  error?.response?.data?.error || fallback;
+
 export const essayAPI = {
-  analyze: (content, mode) => api.post('/essay/analyze', { content, mode }),
+  analyze: (payload) => api.post('/essay/analyze', payload),
+  formatABNT: (payload) => api.post('/essay/format-abnt', payload),
 };
 
 export const pdfAPI = {
@@ -32,14 +39,10 @@ export const pdfAPI = {
     const formData = new FormData();
     formData.append('pdf', file);
     return api.post('/pdf/process', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
     });
   },
-};
-
-export const userAPI = {
-  getProgress: () => api.get('/user/progress'),
-  updateStats: (data) => api.put('/user/stats', data),
 };
 
 export default api;

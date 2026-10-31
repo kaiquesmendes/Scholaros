@@ -51,10 +51,11 @@ cd backend
 npm install
 ```
 
-Create `backend/.env`:
+Create `backend/.env` (use `backend/.env.example` as a template):
 ```
 PORT=10000
 GEMINI_API_KEY=your_gemini_key
+GEMINI_MODEL=gemini-3.1-flash-lite-preview   # opcional; troque se o modelo for descontinuado
 FIREBASE_PROJECT_ID=your_project_id
 FIREBASE_CLIENT_EMAIL=your_service_account_client_email
 FIREBASE_PRIVATE_KEY="your_service_account_private_key"
@@ -71,7 +72,7 @@ cd frontend
 npm install
 ```
 
-Create `frontend/.env`:
+Create `frontend/.env` (use `frontend/.env.example` as a template):
 ```
 VITE_API_URL=http://localhost:10000
 ```

@@ -42,7 +42,7 @@ export const sendGlobalMessage = async (userId, userName, userPhoto, text) => {
 export const listenGlobalMessages = (callback, limitCount = 100) => {
   const q = query(
     collection(db, 'messages'),
-    orderBy('timestamp', 'asc'),
+    orderBy('timestamp', 'desc'),
     limit(limitCount)
   );
   
@@ -51,7 +51,8 @@ export const listenGlobalMessages = (callback, limitCount = 100) => {
     snapshot.forEach((doc) => {
       messages.push({ id: doc.id, ...doc.data() });
     });
-    callback(messages);
+    // A query traz as N mais recentes (desc); a UI espera ordem cronológica.
+    callback(messages.reverse());
   });
 };
 
@@ -444,7 +445,7 @@ export const sendGroupMessage = async (groupId, userId, userName, userPhoto, tex
 export const listenGroupMessages = (groupId, callback, limitCount = 100) => {
   const q = query(
     collection(db, 'groups', groupId, 'messages'),
-    orderBy('timestamp', 'asc'),
+    orderBy('timestamp', 'desc'),
     limit(limitCount)
   );
   
@@ -453,7 +454,8 @@ export const listenGroupMessages = (groupId, callback, limitCount = 100) => {
     snapshot.forEach((doc) => {
       messages.push({ id: doc.id, ...doc.data() });
     });
-    callback(messages);
+    // A query traz as N mais recentes (desc); a UI espera ordem cronológica.
+    callback(messages.reverse());
   });
 };
 
@@ -512,7 +514,7 @@ export const listenPrivateMessages = (userId, otherUserId, callback) => {
   const chatId = [userId, otherUserId].sort().join('_');
   const q = query(
     collection(db, 'private_messages', chatId, 'messages'),
-    orderBy('timestamp', 'asc'),
+    orderBy('timestamp', 'desc'),
     limit(100)
   );
   
@@ -521,6 +523,7 @@ export const listenPrivateMessages = (userId, otherUserId, callback) => {
     snapshot.forEach((doc) => {
       messages.push({ id: doc.id, ...doc.data() });
     });
-    callback(messages);
+    // A query traz as N mais recentes (desc); a UI espera ordem cronológica.
+    callback(messages.reverse());
   });
 };
