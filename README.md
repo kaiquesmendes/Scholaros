@@ -11,8 +11,10 @@ ScholarOS is a study platform built for university and ENEM (Brazilian college e
 
 ## Features
 
-- **AI Essay Editor** — writes and grades essays in ENEM, university, or thesis (TCC) mode, with score breakdown by competence, strengths/improvements feedback, an ABNT auto-formatter, and optional "professor mode," "humanizer," and "expansion" passes
-- **AI PDF processing** — upload a PDF and get an AI-generated summary, flashcards, multiple-choice questions, and a mind map extracted from the content
+- **AI Essay Editor** — grades essays in ENEM, university, or thesis (TCC) mode. The grade is computed server-side from five competences, each with a justification and a quote from the text (quotes that don't exist in the essay are discarded). "Professor mode" adds a detailed opinion, "Strict ABNT" flags ABNT deviations, and "humanizer", "expansion" and "formatter" shape the ABNT formatter. Every analysis is saved, with a history and an evolution chart
+- **AI PDF processing** — reads the whole document in parts (up to ~160k characters, with the coverage reported) and generates a summary, flip flashcards, a graded multiple-choice quiz with explanations, and a mind map. Materials are saved and can be reopened
+- **Spaced repetition** — flashcards from your PDFs go into a deck reviewed with a simplified SM-2 scheduler; real review results feed the dashboard's "Retention" metric
+- **Study tutor** — chat with the AI, optionally grounded in one of your saved materials
 - **Real-time social feed** — global chat, posts with likes/comments, user search, and a follow system, all live via Firestore listeners
 - **Study groups** — create/join groups with group chat and member management
 - **Gamification** — XP, levels, streaks, and a badge system tied to real usage (essays written, PDFs processed, study hours logged)
@@ -88,7 +90,7 @@ Being upfront about what's next:
 - [ ] Audit and lock down Firestore security rules for posts, group chats, and user documents
 - [ ] Restrict CORS on the backend to the actual frontend origin instead of allowing all origins
 - [ ] Split `server.js` into proper `routes/` / `controllers/` / `services/` layers as the API surface grows
-- [ ] Automated tests for the essay-grading and PDF-processing pipelines
+- [ ] Integration tests for the API routes (the AI modules and the SM-2 scheduler already have unit tests: `npm test` in `backend/` and `frontend/`)
 - [ ] CI (GitHub Actions) to run lint/tests on every push
 
 ## License
