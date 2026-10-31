@@ -34,13 +34,19 @@ export const essayAPI = {
   formatABNT: (payload) => api.post('/essay/format-abnt', payload),
 };
 
+export const tutorAPI = {
+  // messages: [{ role: 'user' | 'assistant', content }]; context: texto do material (opcional)
+  chat: (messages, context) => api.post('/chat', { messages, ...(context ? { context } : {}) }),
+};
+
 export const pdfAPI = {
   upload: (file) => {
     const formData = new FormData();
     formData.append('pdf', file);
     return api.post('/pdf/process', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 60000,
+      // Documentos longos são processados em várias etapas no servidor.
+      timeout: 180000,
     });
   },
 };

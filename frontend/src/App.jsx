@@ -34,12 +34,16 @@ import { essayAPI, getApiErrorMessage } from './services/api';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import PDFUploader from './components/PDFUploader';
+import EssayHistory from './components/EssayHistory';
+import { saveEssay } from './services/studyService';
 import Profile from './pages/Profile';
 import SocialNetwork from './pages/SocialNetwork';
 import StudyGroups from './pages/StudyGroups';
 import PDFManager from './pages/PDFManager';
 import CognitiveMap from './pages/CognitiveMap';
 import AntiProcrastination from './pages/AntiProcrastination';
+import Review from './pages/Review';
+import Tutor from './pages/Tutor';
 
 // ========== COMPONENTE DE LOADING ==========
 const LoadingScreen = () => (
@@ -463,6 +467,7 @@ const EssayEditor = ({ user }) => {
   const [showConfig, setShowConfig] = useState(false);
   const [showCopied, setShowCopied] = useState(false);
   const [userData, setUserData] = useState(null);
+  const [historyVersion, setHistoryVersion] = useState(0);
   
   // Modos avançados
   const [professorMode, setProfessorMode] = useState(false);
@@ -714,13 +719,6 @@ ANEXOS (opcional)`
     toast.loading(`🤖 IA analisando seu ${cfg[mode].label}...`, { id: 'analyzing' });
 
     try {
-      let modeText = '';
-      if (professorMode) modeText += ' Ativar MODO PROFESSOR - gere análise detalhada, críticas construtivas e avaliação técnica.';
-      if (strictABNT) modeText += ' Ativar MODO STRICT ABNT - valide formatação, referências e citações.';
-      if (humanizerMode) modeText += ' Ativar MODO HUMANIZADOR - torne o texto mais natural.';
-      if (expansionMode) modeText += ' Ativar MODO EXPANSÃO - expanda ideias curtas.';
-      if (formatterMode) modeText += ' Ativar MODO FORMATADOR - corrija estrutura e formatação.';
-
       const response = await essayAPI.analyze({
         content: essay,
         mode: mode,
@@ -733,11 +731,22 @@ ANEXOS (opcional)`
       });
       
       setFeedback(response.data.feedback || response.data);
-      if (response.data.professorNotes) {
-        setProfessorFeedback(response.data.professorNotes);
+      setProfessorFeedback(response.data.professorNotes || null);
+      
+      if (response.data.meta?.truncated) {
+        toast(`⚠️ Texto longo: analisamos apenas os primeiros ${response.data.meta.analyzedChars} caracteres.`, { duration: 7000 });
       }
       
       await registerEssayWritten(response.data.grade);
+      
+      // Guarda a análise para o histórico/gráfico de evolução (falha aqui não afeta a nota).
+      const saved = await saveEssay(user.uid, {
+        mode,
+        content: essay,
+        feedback: response.data,
+        professorNotes: response.data.professorNotes,
+      });
+      if (saved.success) setHistoryVersion((v) => v + 1);
       
       let notaDisplay = mode === 'enem' ? `${response.data.grade}/1000` : `${response.data.grade}%`;
       toast.success(`✅ Análise concluída! Nota: ${notaDisplay}`, { id: 'analyzing' });
@@ -765,12 +774,6 @@ ANEXOS (opcional)`
 
     setFormatting(true);
     setOriginalEssay(essay);
-    
-    let modeText = '';
-    if (strictABNT) modeText += ' Aplicar rigorosamente normas ABNT (NBR 14724, 10520, 6023, 6028).';
-    if (humanizerMode) modeText += ' Humanizar o texto, evitar padrões de IA.';
-    if (expansionMode) modeText += ' Expandir ideias curtas mantendo coerência.';
-    if (formatterMode) modeText += ' Corrigir estrutura, títulos e formatação.';
     
     toast.loading(`🤖 IA formatando seu ${cfg[mode].label}...`, { id: 'format' });
 
@@ -802,6 +805,17 @@ ANEXOS (opcional)`
     setFeedback(null);
     setProfessorFeedback(null);
     toast.success(`📋 Template ${cfg[mode].label} inserido!`);
+  };
+
+  // Reabre uma redação do histórico no editor, com a análise que ela recebeu.
+  const openFromHistory = (entry) => {
+    setMode(entry.mode);
+    setEssay(entry.content);
+    setOriginalEssay('');
+    setFeedback(entry.feedback || null);
+    setProfessorFeedback(entry.professorNotes || null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast.success('📂 Redação carregada do histórico');
   };
 
   const clearEssay = () => {
@@ -1068,6 +1082,14 @@ ANEXOS (opcional)`
                               <span className="text-purple-600 font-bold">{comp.score}{mode === 'enem' ? '/200' : '%'}</span>
                             </div>
                             <ProgressBar value={comp.score} max={mode === 'enem' ? 200 : 100} color={cfg[mode].color} />
+                            {comp.justification && (
+                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1.5 leading-relaxed">{comp.justification}</p>
+                            )}
+                            {comp.evidence && (
+                              <blockquote className="text-xs italic text-gray-500 border-l-2 pl-2 mt-1" style={{ borderColor: cfg[mode].color }}>
+                                “{comp.evidence}”
+                              </blockquote>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -1099,6 +1121,13 @@ ANEXOS (opcional)`
                         ))}
                       </ul>
                     </div>
+
+                    {professorFeedback && (
+                      <div className="bg-purple-50 dark:bg-purple-900/20 rounded-2xl p-5 shadow-xl border border-purple-200">
+                        <h3 className="font-bold text-purple-700 mb-3 flex items-center gap-2"><FaUserGraduate /> Parecer do Professor</h3>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-line leading-relaxed">{professorFeedback}</p>
+                      </div>
+                    )}
 
                     {feedback.alerts && feedback.alerts.length > 0 && (
                       <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-5 shadow-xl border border-red-200">
@@ -1134,6 +1163,8 @@ ANEXOS (opcional)`
                 )}
               </div>
             </div>
+
+            <EssayHistory uid={user.uid} version={historyVersion} onOpen={openFromHistory} />
           </div>
         </div>
       </div>
@@ -1375,6 +1406,8 @@ function App() {
       <Route path="/" element={user ? <Dashboard user={user} /> : <Navigate to="/login" />} />
       <Route path="/essay" element={user ? <EssayEditor user={user} /> : <Navigate to="/login" />} />
       <Route path="/pdfs" element={user ? <PDFManager user={user} /> : <Navigate to="/login" />} />
+      <Route path="/review" element={user ? <Review user={user} /> : <Navigate to="/login" />} />
+      <Route path="/tutor" element={user ? <Tutor user={user} /> : <Navigate to="/login" />} />
       <Route path="/profile" element={user ? <Profile user={user} /> : <Navigate to="/login" />} />
       <Route path="/cognitive-map" element={user ? <CognitiveMap user={user} /> : <Navigate to="/login" />} />
       <Route path="/social" element={user ? <SocialNetwork user={user} /> : <Navigate to="/login" />} />

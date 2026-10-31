@@ -2,9 +2,10 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { motion } from 'framer-motion';
-import { FaUpload, FaFilePdf, FaSpinner, FaCheckCircle, FaTimes, FaBook, FaLightbulb, FaBrain } from 'react-icons/fa';
+import { FaUpload, FaFilePdf, FaSpinner, FaCheckCircle, FaTimes } from 'react-icons/fa';
 import toast from 'react-hot-toast';
 import { pdfAPI, getApiErrorMessage } from '../services/api';
+import PDFResult from './PDFResult';
 
 const PDFUploader = ({ user, onPDFProcessed }) => {
   const [files, setFiles] = useState([]);
@@ -51,7 +52,7 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
       
       // Chamar callback para registrar XP e histórico
       if (onPDFProcessed) {
-        await onPDFProcessed(fileItem.name, response.data.metadata?.pageCount || 0);
+        await onPDFProcessed(fileItem.name, response.data.metadata?.pageCount || 0, response.data);
       }
       
       toast.success('✅ PDF processado com sucesso!');
@@ -83,14 +84,6 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
     }
   };
 
-  const formatMindMap = (mindMap) => {
-    if (!mindMap) return ['Mapa mental gerado com sucesso!'];
-    if (typeof mindMap === 'string') {
-      return mindMap.split('\n').filter(line => line.trim());
-    }
-    return [String(mindMap)];
-  };
-
   return (
     <div className="space-y-6">
       {/* Área de Upload */}
@@ -109,7 +102,7 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
           {isDragActive ? 'Solte o arquivo aqui' : 'Arraste PDFs ou clique para enviar'}
         </p>
         <p className="text-sm text-gray-500 mt-2">
-          Suporta PDF, slides e documentos acadêmicos (max. 50MB)
+          PDFs com texto selecionável (máx. 20 MB). Documentos longos são lidos por inteiro, até cerca de 160 mil caracteres.
         </p>
       </motion.div>
 
@@ -160,80 +153,7 @@ const PDFUploader = ({ user, onPDFProcessed }) => {
       )}
 
       {/* Resultados do Processamento */}
-      {processedData && selectedFile && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="space-y-6"
-        >
-          {/* Resumo */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <FaBook className="text-purple-500 text-xl" />
-              <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Resumo Inteligente</h3>
-            </div>
-            <p className="text-gray-600 dark:text-gray-300 leading-relaxed">{processedData.summary}</p>
-          </div>
-
-          {/* Flashcards */}
-          {processedData.flashcards && processedData.flashcards.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <FaLightbulb className="text-yellow-500 text-xl" />
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Flashcards Gerados</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {processedData.flashcards.map((card, idx) => (
-                  <div key={idx} className="bg-purple-50 dark:bg-purple-900/30 rounded-lg p-4">
-                    <p className="font-medium text-gray-800 dark:text-white">{card.question}</p>
-                    <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">{card.answer}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Questões */}
-          {processedData.questions && processedData.questions.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <FaCheckCircle className="text-green-500 text-xl" />
-                <h3 className="text-xl font-semibold text-gray-800 dark:text-white">Questões de Fixação</h3>
-              </div>
-              <div className="space-y-6">
-                {processedData.questions.map((q, idx) => (
-                  <div key={idx} className="border-b pb-4 last:border-0">
-                    <p className="font-semibold mb-2">{idx + 1}. {q.question}</p>
-                    <div className="space-y-2">
-                      {q.options?.map((opt, optIdx) => (
-                        <label key={optIdx} className="flex items-center gap-2 text-sm">
-                          <input type="radio" name={`q${idx}`} />
-                          <span>{String.fromCharCode(65 + optIdx)}. {opt}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Mapa Mental */}
-          <div className="bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl p-6 text-white shadow-lg">
-            <div className="flex items-center gap-2 mb-4">
-              <FaBrain className="text-white text-xl" />
-              <h3 className="text-xl font-semibold">🗺️ Mapa Mental</h3>
-            </div>
-            <div className="space-y-2">
-              {formatMindMap(processedData.mindMap).map((line, idx) => (
-                <p key={idx} className="text-white/90 text-sm leading-relaxed">
-                  {line}
-                </p>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
+      {processedData && selectedFile && <PDFResult data={processedData} />}
     </div>
   );
 };
